@@ -1,5 +1,5 @@
 from .schemas import ProblemInstance, ProblemID, Fix, SolutionInstance, MetaDataInstance
-from .functions import parse_dimensions_from_str, parse_dimensions_to_str
+from .functions import parse_dimensions_from_str, parse_dimensions_to_str, get_pure_data
 
 __all__ = [
     "ProblemInstance",
@@ -10,4 +10,5 @@ __all__ = [
 
     "parse_dimensions_from_str",
     "parse_dimensions_to_str",
+    "get_pure_data"
 ]
