@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "SherpAI-Schemas"
+version = "0.1.0"
+description = "Shared schema definitions for SherpAI"
+requires-python = ">=3.13"
+
+dependencies = [
+    "pandas==3.0.1"
+]
