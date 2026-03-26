@@ -168,3 +168,10 @@ class SolutionInstance:
 @dataclass
 class MetaDataInstance:
     """Preservation of process events and orders."""
+
+    def __str__(self):
+        pass
+
+    @staticmethod
+    def parse_from_str(label: str) -> MetaDataInstance:
+        pass
