@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "SherpAI-Schemas"
 version = "0.1.0"
 description = "Shared schema definitions for SherpAI"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 
 dependencies = [
     "pandas==3.0.1"

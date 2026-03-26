@@ -42,7 +42,7 @@ solution = SolutionInstance.parse_from_str("name1['John','Corrected spelling']")
 
 ## Requirements
 
-- Python >= 3.13
+- Python >= 3.12
 - pandas >= 3.0.1
 
 ## Authors
