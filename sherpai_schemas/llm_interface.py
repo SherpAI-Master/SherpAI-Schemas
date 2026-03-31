@@ -11,9 +11,9 @@ from typing import Any
 def inference_conversation(
     system_prompt: str,
     user_prompt: str,
-    model: str = "unsloth/gemma-3-27b-it-bnb-4bit",
+    model: str ,
     temperature: float = 0.0,
-    base_url: str = "http://localhost:8000",
+    base_url: str = "http://localhost:8080",
     api_key: str = None,
 ) -> str:
     """Inference adjacent KnowledgeBase via OpenAI API interface.
