@@ -236,8 +236,8 @@ class Prompts(StrEnum):
     Process this given input data:
 
     # Input data
-    {{"format": "{col_rule}", "data": "{col_value}"}}
     """
+    FIX_FORMATTING_USER="""{{"format": "{col_rule}", "data": "{col_value}"}}"""
     FIX_MISPLACED_SYSTEM = """You are a data-validation expert correcting mistakenly placed values in columns."""
     FIX_MISPLACED_USER = """A value from column "{missing_col}" was mistakenly placed inside 
         the value "{overfilled_value}" of column "{overfilled_col}".
@@ -300,6 +300,13 @@ class FormattingRules:
     typ: re.Pattern = re.compile(r"^[123]$")
     ustid: re.Pattern = re.compile(r"^[A-Z]{2}\d{9}$")
     zeile1: re.Pattern = re.compile(r"[A-ZÄÖÜa-zäöüß.\s-]+\s\d+(?:\s*[/-]\s*\d+|[a-zA-Z])")
+
+    @staticmethod
+    def get_pattern(column: str) -> str | None:
+        """Retrieves the raw regex string for a specific column."""
+        attr = getattr(FormattingRules, column.lower(), None)
+        return attr.pattern if isinstance(attr, re.Pattern) else None
+
 
     @staticmethod
     def is_valid(column: str, value: any) -> bool:
