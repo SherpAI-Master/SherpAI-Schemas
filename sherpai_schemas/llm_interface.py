@@ -13,7 +13,7 @@ def inference_conversation(
     user_prompt: str,
     model: str ,
     temperature: float = 0.0,
-    base_url: str = "http://localhost:8080",
+    base_url: str = "http://knowledgebase:8080",
     api_key: str = None,
 ) -> str:
     """Inference adjacent KnowledgeBase via OpenAI API interface.
