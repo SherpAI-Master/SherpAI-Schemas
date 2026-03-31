@@ -9,12 +9,12 @@ __all__ = [
     "Fix",
     "SolutionInstance",
     "MetaDataInstance",
-    "Prompts"
+    "Prompts",
 
     "parse_dimensions_from_str",
     "parse_dimensions_to_str",
     "get_pure_data",
 
     "inference_conversation",
-    "smart_cast"
+    "smart_cast",
 ]
