@@ -204,7 +204,7 @@ class Prompts(StrEnum):
 
         # Input Data
     """
-    FIX_INCOMPLETE = """
+    FIX_INCOMPLETE_SYSTEM = """
     # Role
     You are a German Data Quality Specialist. Your task is to write out any abbreviations!
 
@@ -213,7 +213,7 @@ class Prompts(StrEnum):
 
     # Input
     """
-    FIX_FORMATTING = """
+    FIX_FORMATTING_SYSTEM = """
     # Role
     You are a data formatting expert. Your task is to fix the formatting of data if possible!
 
@@ -255,8 +255,8 @@ class Prompts(StrEnum):
         - Do not include any explanation or extra text.
         - If you are uncertain, make the most reasonable inference from the provided value.
         """
-    EXTRACT_ADDRESS = """You extract addresses from google search snippets. The correct schema is: {\"street\": \"street and street nr\",\"city\": \"city\",\"zip\": \"#####\",\"country\": \"country\"}. If no address is found or the address does not make sense, return an empty JSON object "{}" with no commentary. Respons strictly in JSON!"""
-    EXTRACT_KLASSIFIK = """
+    EXTRACT_ADDRESS_SYSTEM = """You extract addresses from google search snippets. The correct schema is: {\"street\": \"street and street nr\",\"city\": \"city\",\"zip\": \"#####\",\"country\": \"country\"}. If no address is found or the address does not make sense, return an empty JSON object "{}" with no commentary. Respons strictly in JSON!"""
+    EXTRACT_KLASSIFIK_SYSTEM = """
     # Role
     You are a enterprise identification specialist. Your task is to identify enterprises from normal individual names.
 
@@ -282,25 +282,6 @@ class Prompts(StrEnum):
     Process this given input data:
 
     # Input data
-    """
-
-    GENERATE_REGEX = """
-    System Role: You are an expert Data Engineer and Regular Expression specialist. 
-    Your goal is to analyze data patterns and create precise, efficient, and robust Regular Expressions (Regex).
-    Task: I will provide you with 100 sample values extracted from a single data column. 
-    You must analyze these samples and generate a single Python-compatible Regular Expression that matches all valid entries in the column while minimizing false positives.
-
-    Requirements for the Output:
-    Provide the raw Regex pattern in python format: r"<PATTERN>"
-    Handle potential whitespace if the data suggests it (e.g., \\s*).
-    Prioritize character classes (e.g., \\d, [A-Z]) over literal matches unless the data is strictly constant.
-
-    Constraints:
-    The regex must match at least 98% of the provided valid examples.
-    Avoid "wildcard" solutions like .* and be as specific as the data allows.
-    Rarly use specific character, just when it actually always appears.
-
-    Input Data:
     """
 
 @dataclass(frozen=True)
