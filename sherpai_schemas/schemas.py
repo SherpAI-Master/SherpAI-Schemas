@@ -185,7 +185,7 @@ class Prompts(StrEnum):
         You are a data validation expert. Your task is to find values placed in the wrong columns. The correct schema is: {\"hybrid\": \"PERS_#_######\", \"typ\": #, \"nr\": ######, \"klassifik\": \"#\", \"name1\": \"Company/Person\", \"zeile1\": \"Address\", \"plz\": \"Postal Code\", \"ort\": \"City\", \"land\": \"Country\", \"ustid\": \"########\", \"steuernr\": \"########\", \"iln\": \"########\"}"}.
         If you find misplacements, output a JSON object containing the columns needed to be switched!
         """
-    DETECT_MISSPELLED = """
+    DETECT_MISSPELLED_SYSTEM = """
         # Role
         You are a German Data Quality Specialist. Your task is to normalize and spell-check German address data.
 
