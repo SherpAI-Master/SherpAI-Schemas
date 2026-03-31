@@ -302,4 +302,31 @@ class Prompts(StrEnum):
 
     Input Data:
     """
+
+@dataclass(frozen=True)
+class FormattingRules:
+    """Class holding the regex rules as pre-compiled patterns."""
     
+    hybrid: re.Pattern = re.compile(r"^PERS_\d_\d+$")
+    iln: re.Pattern = re.compile(r".*")
+    klassifik: re.Pattern = re.compile(r"^(10|20|90)$")
+    land: re.Pattern = re.compile(r"[A-ZÄÖÜa-zäöüß.-]+")
+    name1: re.Pattern = re.compile(r"[A-ZÄÖÜa-zäöüß.\s-]+")
+    nr: re.Pattern = re.compile(r"^\d{1,7}$")
+    ort: re.Pattern = re.compile(r"[A-ZÄÖÜa-zäöüß.\s-]+")
+    plz: re.Pattern = re.compile(r"^\d{5}$")
+    steuernr: re.Pattern = re.compile(r".*")
+    typ: re.Pattern = re.compile(r"^[123]$")
+    ustid: re.Pattern = re.compile(r"^[A-Z]{2}\d{9}$")
+    zeile1: re.Pattern = re.compile(r"[A-ZÄÖÜa-zäöüß.\s-]+\s\d+(?:\s*[/-]\s*\d+|[a-zA-Z])")
+
+    @staticmethod
+    def is_valid(column: str, value: any) -> bool:
+        if value is None or pd.isna(value):
+            return False
+
+        pattern = getattr(FormattingRules, column.lower(), None)
+        if pattern and isinstance(pattern, re.Pattern):
+            return bool(pattern.match(str(value)))
+
+        return True
