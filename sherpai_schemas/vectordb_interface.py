@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 from pymilvus import DataType, MilvusClient
 
-from .vectordb_interface import batch_vectorization
+from .llm_interface import batch_vectorization
 
 
 def setup_milvus(client: MilvusClient, collection_name: str) -> None:
