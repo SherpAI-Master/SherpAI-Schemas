@@ -1,6 +1,10 @@
 # Data pre-, or post-processing functions for SherpAI Schemas.
 
 import pandas as pd
+import re
+import ast
+
+from typing import Any
 from dataclasses import fields
 
 from .schemas import ProblemInstance, SolutionInstance, MetaDataInstance
@@ -39,3 +43,19 @@ def get_pure_data(data_row: pd.Series) -> pd.Series:
     allowed_columns = [f.name for f in fields(SolutionInstance)]
     existing_allowed = [col for col in allowed_columns if col in data_row.index]
     return data_row[existing_allowed]
+
+def smart_cast(value: str, return_on_fail: Any) -> any:
+    """Trun LLM response into python literals.
+
+    :param value: LLM response
+    :param return_on_fail: Default object when failed
+    """
+    if not isinstance(value, str):
+        print(f"Warning: Input not string{value}")
+        return value
+    try:
+        python_value = re.sub("true", "True", value)
+        python_value = re.sub("false", "False", python_value)
+        return ast.literal_eval(python_value)
+    except (ValueError, SyntaxError):
+        return return_on_fail if return_on_fail is not None else value

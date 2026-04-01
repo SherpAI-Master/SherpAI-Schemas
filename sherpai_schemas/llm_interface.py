@@ -2,16 +2,13 @@
 
 import json
 import requests
-import re
-import ast
-
-from typing import Any
+import pandas as pd
 
 
 def inference_conversation(
     system_prompt: str,
     user_prompt: str,
-    model: str ,
+    model: str,
     temperature: float = 0.0,
     base_url: str = "http://knowledgebase:8000",
     api_key: str = None,
@@ -54,18 +51,38 @@ def inference_conversation(
         return f"Unexpected API Response Format: {response.text}"
 
 
-def smart_cast(value: str, return_on_fail: Any) -> any:
-    """Trun LLM response into python literals.
+def batch_vectorization(
+    data: pd.Series,
+    batch_size: int = 512,
+    model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    base_url: str = "http://knowledgebase:8000",
+    api_key: str = None,
+) -> list[float]:
+    """Vectorize a series of strings with the provided model.
 
-    :param value: LLM response
-    :param return_on_fail: Default object when failed
+    :param data: Series with strings to be vectorized
+    :type data: pd.Series
+    :param batch_size: Size of batches which are vectorized, defaults to 512
+    :type batch_size: int, optional
+    :param embedding_model: defaults to "sentence-transformers/all-MiniLM-L6-v2"
+    :type embedding_model: str, optional
+    :return: Embedded strings
+    :rtype: list[float]
     """
-    if not isinstance(value, str):
-        print(f"Warning: Input not string{value}")
-        return value
-    try:
-        python_value = re.sub("true", "True", value)
-        python_value = re.sub("false", "False", python_value)
-        return ast.literal_eval(python_value)
-    except (ValueError, SyntaxError):
-        return return_on_fail if return_on_fail is not None else value
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    embeddings = []
+    for i in range(0, len(data), batch_size):
+        batch_texts = data.iloc[i : i + batch_size].to_list()
+        payload = {"model": model, "input": batch_texts}
+        response = requests.post(
+            base_url + "/v1/embeddings", json=payload, headers=headers, timeout=60
+        )
+        response.raise_for_status()
+        data_json = response.json()
+        batch_embeddings = [record["embedding"] for record in data_json["data"]]
+        embeddings.extend(batch_embeddings)
+
+    return embeddings
