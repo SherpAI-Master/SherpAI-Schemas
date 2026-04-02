@@ -55,7 +55,7 @@ def batch_vectorization(
     data: pd.Series,
     batch_size: int = 512,
     model: str = "sentence-transformers/all-MiniLM-L6-v2",
-    base_url: str = "http://knowledgebase:8000",
+    base_url: str = "http://embedbase:8000",
     api_key: str = None,
 ) -> list[float]:
     """Vectorize a series of strings with the provided model.
