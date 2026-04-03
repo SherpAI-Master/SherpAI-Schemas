@@ -209,6 +209,7 @@ def batch_inference_fix_formatting(remembered_formatting: pd.Series) -> pd.Serie
         results = inference_completion(model="unsloth/gemma-3-27b-it-bnb-4bit", prompt=prompts, max_tokens=120)
         choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
         all_results = [choice["text"] for choice in choices]
+        print("All results", all_results)
         
         proposal = SolutionInstance()
         for idx, text in enumerate(all_results):
