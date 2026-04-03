@@ -276,7 +276,7 @@ def batch_inference_fix_incomplete(remembered_incomplete: pd.Series) -> pd.Serie
         if not text:
             continue
             
-        match = re.search(r"\{.*\}", text, re.DOTALL)
+        match = re.search(r'"([^"]*)"', text, re.DOTALL)
         if match:
             useable_response = smart_cast(match.group(0), return_on_fail=None)
             

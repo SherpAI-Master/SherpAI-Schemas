@@ -211,6 +211,13 @@ class Prompts(StrEnum):
     # Instructions
     You receive an string with abbreviations. Write out any other abbreviation and return the completed string with double quotes!
 
+    # Examples
+    Input: "Manufaktur u. Produktion"
+    Output: "Manufaktur und Produktion"
+
+    Input: "Aluminiumwerk Hr. Meier"
+    Output: "Aluminiumwerk Herr Meier"
+
     # Input
     """
     FIX_FORMATTING_SYSTEM = """
