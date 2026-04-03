@@ -28,7 +28,7 @@ def parse_dimensions_to_str(df: pd.DataFrame):
     :param df: DataFrame containing all added data dimensions
     """
     df["ProblemSpace"] = df["ProblemSpace"].map(str)
-    df["SolutionSpace"] = df["SolutionSpace"].map(str)
+    df["SolutionSpace"] = df["SolutionSpace"].map(str) # Maybe create new instance each time
     df["MetaDataSpace"] = df["MetaDataSpace"].map(str)
 
     return df
