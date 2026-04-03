@@ -103,7 +103,7 @@ class SolutionInstance:
     def combine(self, other: SolutionInstance) -> None:
         """Combine two Proposals. Keep self values if present; otherwise take from other."""
         if not isinstance(other, SolutionInstance):
-            msg = "Not type of SolutionInstance!"
+            msg = f"Not type of SolutionInstance! Its of type{type(other)}."
             raise TypeError(msg)
 
         for f in fields(self):
