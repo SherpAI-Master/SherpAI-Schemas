@@ -203,13 +203,11 @@ def batch_inference_address_extraction(remebered_snippet_lists: pd.Series) -> pd
 def batch_inference_fix_formatting(remembered_formatting: pd.Series) -> pd.Series:
     """Führt Inferenz für alle Zeilen und Felder in einem einzigen Batch aus."""
     
-    # 1. Metadaten und Prompts sammeln (Flatten)
     all_prompts = []
-    structure_map = [] # Speichert (row_index, field_name) für jedes Ergebnis
+    structure_map = []
 
     for row_idx, row_list in remembered_formatting.items():
         for format_item in row_list:
-            # format_item: [None, 'field_name', 'raw_value']
             prompt = _format_gemma_prompt(Prompts.FIX_FORMATTING_SYSTEM, str(format_item[2]))
             all_prompts.append(prompt)
             structure_map.append((row_idx, format_item[1]))
@@ -218,38 +216,74 @@ def batch_inference_fix_formatting(remembered_formatting: pd.Series) -> pd.Serie
         return pd.Series([SolutionInstance() for _ in range(len(remembered_formatting))], 
                          index=remembered_formatting.index)
 
-    # 2. Bulk Inference (Ein einziger Aufruf!)
     results = inference_completion(
         model="unsloth/gemma-3-27b-it-bnb-4bit", 
         prompt=all_prompts, 
         max_tokens=120
     )
     
-    # Sortieren nach Index, um die Reihenfolge zu garantieren
     choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
     all_texts = [choice["text"] for choice in choices]
 
-    # 3. Ergebnisse den SolutionInstances zuordnen (Unflatten)
-    # Wir erstellen ein Dictionary mit leeren Objekten pro Original-Index
     proposals_dict = {idx: SolutionInstance() for idx in remembered_formatting.index}
 
     for text, (row_idx, field_name) in zip(all_texts, structure_map):
         if not text:
             continue
             
-        # JSON Extraktion
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
             useable_response = smart_cast(match.group(0), return_on_fail={})
             
             if useable_response and useable_response.get("fixable"):
-                # Das richtige Objekt aus dem Dict holen und Feld setzen
                 proposal = proposals_dict[row_idx]
                 fix: Fix = getattr(proposal, field_name)
                 fix.value = useable_response["data"]
 
-    # Als Series in der ursprünglichen Reihenfolge zurückgeben
     return pd.Series(proposals_dict.values(), index=remembered_formatting.index)
+
+
+def batch_inference_fix_incomplete(remembered_incomplete: pd.Series) -> pd.Series:
+    """Führt Inferenz für alle Zeilen und Felder in einem einzigen Batch aus."""
+    
+    all_prompts = []
+    structure_map = []
+
+    for row_idx, row_list in remembered_incomplete.items():
+        for incomplete_item in row_list:
+            prompt = _format_gemma_prompt(Prompts.FIX_INCOMPLETE_SYSTEM, str(incomplete_item[2]))
+            all_prompts.append(prompt)
+            structure_map.append((row_idx, incomplete_item[1]))
+
+    if not all_prompts:
+        return pd.Series([SolutionInstance() for _ in range(len(remembered_incomplete))], 
+                         index=remembered_incomplete.index)
+
+    results = inference_completion(
+        model="unsloth/gemma-3-27b-it-bnb-4bit", 
+        prompt=all_prompts, 
+        max_tokens=120
+    )
+    
+    choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
+    all_texts = [choice["text"] for choice in choices]
+
+    proposals_dict = {idx: SolutionInstance() for idx in remembered_incomplete.index}
+
+    for text, (row_idx, field_name) in zip(all_texts, structure_map):
+        if not text:
+            continue
+            
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            useable_response = smart_cast(match.group(0), return_on_fail=None)
+            
+            if useable_response and useable_response.get("fixable"):
+                proposal = proposals_dict[row_idx]
+                fix: Fix = getattr(proposal, field_name)
+                fix.value = useable_response["data"]
+
+    return pd.Series(proposals_dict.values(), index=remembered_incomplete.index)
 
 
 def batch_vectorization(
