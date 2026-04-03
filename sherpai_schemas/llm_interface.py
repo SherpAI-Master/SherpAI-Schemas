@@ -108,6 +108,7 @@ def batch_inference_klassifik(remembered_names: pd.Series) -> pd.Series:
     prompts = [_format_gemma_prompt(Prompts.EXTRACT_KLASSIFIK_SYSTEM, str(name)) for name in remembered_names]
     results = inference_completion(model="unsloth/gemma-3-27b-it-bnb-4bit", prompt=prompts)
     all_results = [choice["text"] for choice in results["choices"]]
+    print("EEEEEEEEE", all_results)
 
     obj_for_failed = {"prediction": 90, "reason": "Failed process!"}
 
@@ -127,6 +128,8 @@ def batch_inference_klassifik(remembered_names: pd.Series) -> pd.Series:
         proposal.klassifik.value = imputed_klassifik["prediction"]
         proposal.klassifik.reason = imputed_klassifik["reason"]
         all_proposals.append(proposal)
+    print("WWWWWWW", all_proposals)
+    print("TTTTTTTT", pd.Series(all_proposals, index=remembered_names.index))
 
     return pd.Series(all_proposals, index=remembered_names.index)
 
