@@ -210,16 +210,21 @@ class Prompts(StrEnum):
 
     # Instructions
     You receive an string with abbreviations. Write out any other abbreviation and return the completed string with double quotes!
+    Ignore standardized abbreviations like Co KG or Inc.
 
     # Examples
-    Input: "Manufaktur u. Produktion"
-    Output: "Manufaktur und Produktion"
+    Input: The value  "Manufaktur u. Produktion Dachmann" of column name1
+    Output: "Manufaktur und Produktion Dachmann"
 
-    Input: "Aluminiumwerk Hr. Meier"
+    Input: The value "Aluminiumwerk Hr. Meier" of column name1
     Output: "Aluminiumwerk Herr Meier"
 
     # Input
     """
+    FIX_INCOMPLETE_USER="""
+    The value"{col_value}" of column {col_name}
+    """
+    
     FIX_FORMATTING_SYSTEM = """
     # Role
     You are a data formatting expert. Your task is to fix the formatting of data if possible!
