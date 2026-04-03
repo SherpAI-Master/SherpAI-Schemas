@@ -133,6 +133,8 @@ def batch_inference_klassifik(remembered_names: pd.Series) -> pd.Series:
         all_proposals.append(proposal)
     print("WWWWWWW", all_proposals)
     print("TTTTTTTT", pd.Series(all_proposals, index=remembered_names.index))
+    print("12314", pd.Series(all_proposals, index=remembered_names.index)[0])
+    print("12314", type(pd.Series(all_proposals, index=remembered_names.index)[0]))
 
     return pd.Series(all_proposals, index=remembered_names.index)
 
