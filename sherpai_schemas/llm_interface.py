@@ -255,6 +255,7 @@ def batch_inference_fix_incomplete(remembered_incomplete: pd.Series) -> pd.Serie
             all_prompts.append(prompt)
             structure_map.append((row_idx, incomplete_item[1]))
 
+    print("All prompts", all_prompts)
     if not all_prompts:
         return pd.Series([SolutionInstance() for _ in range(len(remembered_incomplete))], 
                          index=remembered_incomplete.index)
