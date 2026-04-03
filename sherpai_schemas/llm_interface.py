@@ -267,6 +267,7 @@ def batch_inference_fix_incomplete(remembered_incomplete: pd.Series) -> pd.Serie
     
     choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
     all_texts = [choice["text"] for choice in choices]
+    print("All incomplte correciton texts: ", all_texts)
 
     proposals_dict = {idx: SolutionInstance() for idx in remembered_incomplete.index}
 
