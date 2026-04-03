@@ -283,7 +283,7 @@ def batch_inference_fix_incomplete(remembered_incomplete: pd.Series) -> pd.Serie
             if useable_response:
                 proposal = proposals_dict[row_idx]
                 fix: Fix = getattr(proposal, field_name)
-                fix.value = useable_response["data"]
+                fix.value = useable_response
 
     return pd.Series(proposals_dict.values(), index=remembered_incomplete.index)
 
