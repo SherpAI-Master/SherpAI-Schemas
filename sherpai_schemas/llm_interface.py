@@ -199,28 +199,30 @@ def batch_inference_address_extraction(remebered_snippet_lists: pd.Series) -> pd
 
     return pd.Series(final_series_data, index=remebered_snippet_lists.index)
 
+
 def batch_inference_fix_formatting(remembered_formatting: pd.Series) -> pd.Series:
     """Batch inference fix formatting."""
-    prompts = [_format_gemma_prompt(Prompts.FIX_FORMATTING_SYSTEM, str(user_prompt[0])) for user_prompt in remembered_formatting]
-    results = inference_completion(model="unsloth/gemma-3-27b-it-bnb-4bit", prompt=prompts, max_tokens=120)
-    choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
-    all_results = [choice["text"] for choice in choices]
-
-
     all_proposals = []
-    for idx, result in enumerate(all_results):
+    for row_list in remembered_formatting:
+        prompts = [_format_gemma_prompt(Prompts.FIX_FORMATTING_SYSTEM, str(format_list[2])) 
+                for format_list in row_list]
+        results = inference_completion(model="unsloth/gemma-3-27b-it-bnb-4bit", prompt=prompts, max_tokens=120)
+        choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
+        all_results = [choice["text"] for choice in choices]
+        
         proposal = SolutionInstance()
-        if result:
-            match = re.search(r"\{.*\}", result, re.DOTALL)
-            if not match:
-                print("No JSON object found in LLM output!")
-                return {}
-            useable_response = smart_cast(match.group(0), return_on_fail={})
+        for idx, text in enumerate(all_results):
+            if text:
+                match = re.search(r"\{.*\}", text, re.DOTALL)
+                if not match:
+                    print("No JSON object found in LLM output!")
+                    return {}
+                useable_response = smart_cast(match.group(0), return_on_fail={})
 
-        print("FORMAT ASSISTANT: ", useable_response)
-        if useable_response and useable_response["fixable"]:
-            fix: Fix = getattr(proposal, remembered_formatting[idx][1])
-            fix.value = useable_response["data"]
+            print("FORMAT ASSISTANT: ", useable_response)
+            if useable_response and useable_response["fixable"]:
+                fix: Fix = getattr(proposal, row_list[idx][1])
+                fix.value = useable_response["data"]
         all_proposals.append(proposal)
     return pd.Series(all_proposals, index=remembered_formatting.index)
 
