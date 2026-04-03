@@ -201,31 +201,55 @@ def batch_inference_address_extraction(remebered_snippet_lists: pd.Series) -> pd
 
 
 def batch_inference_fix_formatting(remembered_formatting: pd.Series) -> pd.Series:
-    """Batch inference fix formatting."""
-    all_proposals = []
-    for row_list in remembered_formatting:
-        prompts = [_format_gemma_prompt(Prompts.FIX_FORMATTING_SYSTEM, str(format_list[2])) 
-                for format_list in row_list]
-        results = inference_completion(model="unsloth/gemma-3-27b-it-bnb-4bit", prompt=prompts, max_tokens=120)
-        choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
-        all_results = [choice["text"] for choice in choices]
-        print("All results", all_results)
-        
-        proposal = SolutionInstance()
-        for idx, text in enumerate(all_results):
-            if text:
-                match = re.search(r"\{.*\}", text, re.DOTALL)
-                if not match:
-                    print("No JSON object found in LLM output!")
-                    return {}
-                useable_response = smart_cast(match.group(0), return_on_fail={})
+    """Führt Inferenz für alle Zeilen und Felder in einem einzigen Batch aus."""
+    
+    # 1. Metadaten und Prompts sammeln (Flatten)
+    all_prompts = []
+    structure_map = [] # Speichert (row_index, field_name) für jedes Ergebnis
 
-            print("FORMAT ASSISTANT: ", useable_response)
-            if useable_response and useable_response["fixable"]:
-                fix: Fix = getattr(proposal, row_list[idx][1])
+    for row_idx, row_list in remembered_formatting.items():
+        for format_item in row_list:
+            # format_item: [None, 'field_name', 'raw_value']
+            prompt = _format_gemma_prompt(Prompts.FIX_FORMATTING_SYSTEM, str(format_item[2]))
+            all_prompts.append(prompt)
+            structure_map.append((row_idx, format_item[1]))
+
+    if not all_prompts:
+        return pd.Series([SolutionInstance() for _ in range(len(remembered_formatting))], 
+                         index=remembered_formatting.index)
+
+    # 2. Bulk Inference (Ein einziger Aufruf!)
+    results = inference_completion(
+        model="unsloth/gemma-3-27b-it-bnb-4bit", 
+        prompt=all_prompts, 
+        max_tokens=120
+    )
+    
+    # Sortieren nach Index, um die Reihenfolge zu garantieren
+    choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
+    all_texts = [choice["text"] for choice in choices]
+
+    # 3. Ergebnisse den SolutionInstances zuordnen (Unflatten)
+    # Wir erstellen ein Dictionary mit leeren Objekten pro Original-Index
+    proposals_dict = {idx: SolutionInstance() for idx in remembered_formatting.index}
+
+    for text, (row_idx, field_name) in zip(all_texts, structure_map):
+        if not text:
+            continue
+            
+        # JSON Extraktion
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            useable_response = smart_cast(match.group(0), return_on_fail={})
+            
+            if useable_response and useable_response.get("fixable"):
+                # Das richtige Objekt aus dem Dict holen und Feld setzen
+                proposal = proposals_dict[row_idx]
+                fix: Fix = getattr(proposal, field_name)
                 fix.value = useable_response["data"]
-        all_proposals.append(proposal)
-    return pd.Series(all_proposals, index=remembered_formatting.index)
+
+    # Als Series in der ursprünglichen Reihenfolge zurückgeben
+    return pd.Series(proposals_dict.values(), index=remembered_formatting.index)
 
 
 def batch_vectorization(
