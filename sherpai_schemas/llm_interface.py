@@ -280,7 +280,7 @@ def batch_inference_fix_incomplete(remembered_incomplete: pd.Series) -> pd.Serie
         if match:
             useable_response = smart_cast(match.group(0), return_on_fail=None)
             
-            if useable_response and useable_response.get("fixable"):
+            if useable_response:
                 proposal = proposals_dict[row_idx]
                 fix: Fix = getattr(proposal, field_name)
                 fix.value = useable_response["data"]
