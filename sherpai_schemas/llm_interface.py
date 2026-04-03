@@ -65,6 +65,7 @@ def inference_completion(
     prompt: str | list[str],
     model: str,
     temperature: float = 0.0,
+    max_tokens: int = 50,
     base_url: str = "http://knowledgebase:8000",
     api_key: str = None,
 ) -> str:
@@ -83,6 +84,7 @@ def inference_completion(
         "model": model,
         "prompt": prompt,
         "temperature": temperature,
+        "max_tokens": max_tokens,
         "stream": False,
     }
 
@@ -106,8 +108,9 @@ def inference_completion(
 def batch_inference_klassifik(remembered_names: pd.Series) -> pd.Series:
     """Batch inference all klassifik in a df."""
     prompts = [_format_gemma_prompt(Prompts.EXTRACT_KLASSIFIK_SYSTEM, str(name)) for name in remembered_names]
-    results = inference_completion(model="unsloth/gemma-3-27b-it-bnb-4bit", prompt=prompts)
-    all_results = [choice["text"] for choice in results["choices"]]
+    results = inference_completion(model="unsloth/gemma-3-27b-it-bnb-4bit", prompt=prompts, max_tokens=60)
+    choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
+    all_results = [choice["text"] for choice in choices]
     print("EEEEEEEEE", all_results)
 
     obj_for_failed = {"prediction": 90, "reason": "Failed process!"}
@@ -164,12 +167,13 @@ def batch_inference_address_extraction(remebered_snippet_lists: pd.Series) -> pd
             row_map.append(row_idx)
 
     # 2. ONE API CALL for the whole DataFrame
-    results = inference_completion(model="...", prompt=all_prompts)
-    all_raw_texts = [choice["text"] for choice in results["choices"]]
+    results = inference_completion(model="unsloth/gemma-3-27b-it-bnb-4bit", prompt=all_prompts, max_tokens=150)
+    choices = sorted(results["choices"], key=lambda x: x.get("index", 0))
+    all_results = [choice["text"] for choice in choices]
 
     # 3. Parse and group results by original row
     parsed_data = {} # {row_idx: [list_of_address_dicts]}
-    for i, raw_text in enumerate(all_raw_texts):
+    for i, raw_text in enumerate(all_results):
         row_idx = row_map[i]
         if row_idx not in parsed_data: parsed_data[row_idx] = []
         
