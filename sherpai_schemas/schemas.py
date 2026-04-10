@@ -6,6 +6,9 @@ import ast
 import re
 from dataclasses import dataclass, field, fields
 from enum import Enum
+from datetime import datetime
+from typing import Optional
+import json
 
 import pandas as pd
 from enum import StrEnum
@@ -170,12 +173,43 @@ class SolutionInstance:
 class MetaDataInstance:
     """Preservation of process events and orders."""
 
-    def __str__(self):
-        pass
+    time_stamp: datetime
+    model_name: str
+    trainable: bool
+    tool_name: str
+    notes: Optional[str] = None
+
+    def __str__(self) -> str:
+        return json.dumps({
+            "time_stamp": self.time_stamp.isoformat(),
+            "trainable": self.trainable,
+            "model_name": self.model_name,
+            "notes": self.notes,
+        }, ensure_ascii=False)
 
     @staticmethod
-    def parse_from_str(label: str) -> MetaDataInstance:
-        pass
+    def parse_from_str(label: str) -> "MetaDataInstance":
+        data = json.loads(label)
+        return MetaDataInstance(
+            time_stamp=datetime.fromisoformat(data["time_stamp"]),
+            trainable=data["trainable"],
+            model_name=data.get("model_name"),
+            notes=data.get("notes"),
+        )
+
+    @staticmethod
+    def now(
+        trainable: bool,
+        model_name: Optional[str] = None,
+        notes: Optional[str] = None,
+    ) -> "MetaDataInstance":
+        """Convenience factory that auto-fills the current timestamp."""
+        return MetaDataInstance(
+            time_stamp=datetime.utcnow(),
+            trainable=trainable,
+            model_name=model_name,
+            notes=notes,
+        )
 
 
 class Prompts(StrEnum):
