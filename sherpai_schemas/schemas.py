@@ -363,7 +363,7 @@ class FormattingRules:
     steuernr: re.Pattern = re.compile(r".*")
     typ: re.Pattern = re.compile(r"^[123]$")
     ustid: re.Pattern = re.compile(r"^[A-Z]{2}\d{9}$")
-    zeile1: re.Pattern = re.compile(r"[A-ZÄÖÜa-zäöüß.\s-]+\s\d+(?:\s*[/-]\s*\d+|[a-zA-Z])")
+    zeile1: re.Pattern = re.compile(r"^[A-ZÄÖÜa-zäöüß.\s-]+\s+\d+(\s*[/-]\s*\d+|[a-zA-Z])?\s*$")
 
     @staticmethod
     def get_pattern(column: str) -> str | None:
