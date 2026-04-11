@@ -104,15 +104,15 @@ class SolutionInstance:
         return all(not getattr(self, f.name).has_value() for f in fields(self))
 
     def combine(self, other: SolutionInstance) -> None:
-        """Combine two Proposals. Keep self values if present; otherwise take from other."""
+        """Combine two Proposals. Keep self values if present; otherwise take from other.""" # Testing with overwriting
         if not isinstance(other, SolutionInstance):
             msg = f"Not type of SolutionInstance! Its of type{type(other)}."
             raise TypeError(msg)
 
         for f in fields(self):
-            current_fix: Fix = getattr(self, f.name)
+            # current_fix: Fix = getattr(self, f.name)
             other_fix: Fix = getattr(other, f.name)
-            if not current_fix.has_value() and other_fix.has_value():
+            if other_fix.has_value(): # not current_fix.has_value() and 
                 setattr(self, f.name, other_fix)
 
     def apply_proposal(self, row: pd.Series) -> pd.Series:
