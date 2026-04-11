@@ -170,46 +170,64 @@ class SolutionInstance:
 
 
 @dataclass
-class MetaDataInstance:
-    """Preservation of process events and orders."""
-
-    time_stamp: datetime
-    model_name: str
-    trainable: bool
-    tool_name: str
+class MetaDataEntry:
+    """A single entry for metadata, containing details about a process event."""
+    time_stamp: Optional[datetime] = None
+    model_name: Optional[str] = None
+    trainable: Optional[bool] = None
+    tool_name: Optional[str] = None
     notes: Optional[str] = None
 
     def __str__(self) -> str:
+        # Ensure time_stamp is handled if None
+        time_stamp_str = self.time_stamp.isoformat() if self.time_stamp else None
         return json.dumps({
-            "time_stamp": self.time_stamp.isoformat(),
+            "time_stamp": time_stamp_str,
             "trainable": self.trainable,
             "model_name": self.model_name,
             "notes": self.notes,
+            "tool_name": self.tool_name, # Include tool_name in serialization
         }, ensure_ascii=False)
 
-    @staticmethod
-    def parse_from_str(label: str) -> "MetaDataInstance":
-        data = json.loads(label)
-        return MetaDataInstance(
-            time_stamp=datetime.fromisoformat(data["time_stamp"]),
-            trainable=data["trainable"],
-            model_name=data.get("model_name"),
-            notes=data.get("notes"),
-        )
+
+class MetaDataInstance(list[MetaDataEntry]):
+    """Preservation of process events and orders."""
+
+    def __str__(self) -> str:
+        # Serialize the list of MetaDataEntry objects
+        return json.dumps([json.loads(str(item)) for item in self], ensure_ascii=False)
 
     @staticmethod
     def now(
         trainable: bool,
         model_name: Optional[str] = None,
         notes: Optional[str] = None,
-    ) -> "MetaDataInstance":
-        """Convenience factory that auto-fills the current timestamp."""
-        return MetaDataInstance(
-            time_stamp=datetime.utcnow(),
-            trainable=trainable,
-            model_name=model_name,
-            notes=notes,
-        )
+        tool_name: Optional[str] = None,
+    ) -> "MetaDataInstance": # This now returns a list of MetaDataEntry
+        """Convenience factory that auto-fills the current timestamp and returns a MetaDataInstance with one entry."""
+        # Create a new MetaDataInstance (which is a list) and add one MetaDataEntry to it
+        instance = MetaDataInstance()
+        instance.append(MetaDataEntry.now(trainable, model_name, notes, tool_name))
+        return instance
+
+    @staticmethod
+    def parse_from_str(label: str) -> "MetaDataInstance":
+        """Convert string representation of MetaDataInstance back into an object."""
+        try:
+            list_of_dicts = json.loads(label)
+            if not isinstance(list_of_dicts, list):
+                raise ValueError("Expected a JSON list of metadata entries.")
+            
+            instance = MetaDataInstance()
+            for item_dict in list_of_dicts:
+                # Convert string timestamp back to datetime object
+                if 'time_stamp' in item_dict and item_dict['time_stamp']:
+                    item_dict['time_stamp'] = datetime.fromisoformat(item_dict['time_stamp'])
+                instance.append(MetaDataEntry(**item_dict))
+            return instance
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            print(f"Error parsing MetaDataInstance from string: {e}")
+            return MetaDataInstance()
 
 
 class Prompts(StrEnum):
