@@ -29,7 +29,7 @@ def parse_dimensions_to_str(df: pd.DataFrame):
     """
     df["ProblemSpace"] = df["ProblemSpace"].map(str)
     df["SolutionSpace"] = df["SolutionSpace"].map(str) # Maybe create new instance each time
-    df["MetaDataSpace"] = df["MetaDataSpace"].map(str)
+    df["MetaDataSpace"] = df["MetaDataSpace"].map(str) # Maybe create new instance each time
 
     return df
 

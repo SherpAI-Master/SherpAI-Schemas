@@ -140,7 +140,7 @@ class SolutionInstance:
         for f in fields(self):
             field_fix: Fix = getattr(self, f.name)
             if field_fix.value or field_fix.reason:
-                final_string += f"{f.name}['{field_fix.value}','{field_fix.reason}']"
+                final_string += f"{f.name}[{repr(field_fix.value)},{repr(field_fix.reason)}]"
         return final_string
 
     @staticmethod
