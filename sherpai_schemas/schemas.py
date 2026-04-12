@@ -172,23 +172,20 @@ class SolutionInstance:
 @dataclass
 class MetaDataEntry:
     """A single entry for metadata, containing details about a process event."""
-    time_stamp: Optional[datetime] = None
+    tool_name: str
+    time_stamp: datetime
+    trainable: bool = False
     model_name: Optional[str] = None
-    trainable: Optional[bool] = None
-    tool_name: Optional[str] = None
     notes: Optional[str] = None
 
-    def __str__(self) -> str:
-        # Ensure time_stamp is handled if None
-        time_stamp_str = self.time_stamp.isoformat() if self.time_stamp else None
-        return json.dumps({
-            "time_stamp": time_stamp_str,
+    def to_dict(self) -> dict:
+        return {
+            "tool_name": self.tool_name,
+            "time_stamp": self.time_stamp.isoformat(),
             "trainable": self.trainable,
             "model_name": self.model_name,
-            "tool_name": self.tool_name, # Include tool_name in serialization
             "notes": self.notes,
-
-        }, ensure_ascii=False)
+        }
 
 
 class MetaDataInstance(list[MetaDataEntry]):
@@ -196,17 +193,18 @@ class MetaDataInstance(list[MetaDataEntry]):
 
     def __str__(self) -> str:
         # Serialize the list of MetaDataEntry objects
-        return json.dumps([json.loads(str(item)) for item in self], ensure_ascii=False)
+        return json.dumps([item.to_dict() for item in self], ensure_ascii=False)
 
     def now(
         self,
+        tool_name: str,
         trainable: bool,
         model_name: Optional[str] = None,
         notes: Optional[str] = None,
-        tool_name: Optional[str] = None,
-    ) -> "MetaDataInstance": # This now returns a list of MetaDataEntry
+        
+    ) -> "MetaDataInstance":
         """Convenience factory that auto-fills the current timestamp and returns a MetaDataInstance with one entry."""
-        self.append(MetaDataEntry(datetime.now(timezone.utc), model_name, trainable, tool_name, notes))
+        self.append(MetaDataEntry(tool_name, datetime.now(timezone.utc), trainable, model_name, notes))
 
 
     @staticmethod
@@ -219,9 +217,7 @@ class MetaDataInstance(list[MetaDataEntry]):
         
         instance = MetaDataInstance()
         for item_dict in list_of_dicts:
-            # Convert string timestamp back to datetime object
-            if 'time_stamp' in item_dict and item_dict['time_stamp']:
-                item_dict['time_stamp'] = datetime.fromisoformat(item_dict['time_stamp'])
+            item_dict["time_stamp"] = datetime.fromisoformat(item_dict["time_stamp"])
             instance.append(MetaDataEntry(**item_dict))
         return instance
 
