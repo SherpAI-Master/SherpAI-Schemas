@@ -208,10 +208,10 @@ class MetaDataInstance(list[MetaDataEntry]):
 
 
     @staticmethod
-    def parse_from_str(label: str) -> "MetaDataInstance":
+    def parse_from_str(label: str| list) -> "MetaDataInstance":
         """Convert string representation of MetaDataInstance back into an object."""
 
-        list_of_dicts = json.loads(label)
+        list_of_dicts = json.loads(label) if isinstance(label, str) else label
         if not isinstance(list_of_dicts, list):
             raise ValueError("Expected a JSON list of metadata entries.")
         
