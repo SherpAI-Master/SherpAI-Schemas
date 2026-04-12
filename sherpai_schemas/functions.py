@@ -3,6 +3,7 @@
 import pandas as pd
 import re
 import ast
+import json
 
 from typing import Any
 from dataclasses import fields
@@ -29,7 +30,7 @@ def parse_dimensions_to_str(df: pd.DataFrame):
     """
     df["ProblemSpace"] = df["ProblemSpace"].map(str)
     df["SolutionSpace"] = df["SolutionSpace"].map(str) # Maybe create new instance each time
-    df["MetaDataSpace"] = df["MetaDataSpace"].map(str) # Maybe create new instance each time
+    df["MetaDataSpace"] = df["MetaDataSpace"].apply(lambda x: json.loads(str(x)))
 
     return df
 
