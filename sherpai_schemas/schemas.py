@@ -6,7 +6,7 @@ import ast
 import re
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import json
 
@@ -185,8 +185,9 @@ class MetaDataEntry:
             "time_stamp": time_stamp_str,
             "trainable": self.trainable,
             "model_name": self.model_name,
-            "notes": self.notes,
             "tool_name": self.tool_name, # Include tool_name in serialization
+            "notes": self.notes,
+
         }, ensure_ascii=False)
 
 
@@ -197,37 +198,32 @@ class MetaDataInstance(list[MetaDataEntry]):
         # Serialize the list of MetaDataEntry objects
         return json.dumps([json.loads(str(item)) for item in self], ensure_ascii=False)
 
-    @staticmethod
     def now(
+        self,
         trainable: bool,
         model_name: Optional[str] = None,
         notes: Optional[str] = None,
         tool_name: Optional[str] = None,
     ) -> "MetaDataInstance": # This now returns a list of MetaDataEntry
         """Convenience factory that auto-fills the current timestamp and returns a MetaDataInstance with one entry."""
-        # Create a new MetaDataInstance (which is a list) and add one MetaDataEntry to it
-        instance = MetaDataInstance()
-        instance.append(MetaDataEntry.now(trainable, model_name, notes, tool_name))
-        return instance
+        self.append(MetaDataEntry(datetime.now(timezone.utc), model_name, trainable, tool_name, notes))
+
 
     @staticmethod
     def parse_from_str(label: str) -> "MetaDataInstance":
         """Convert string representation of MetaDataInstance back into an object."""
-        try:
-            list_of_dicts = json.loads(label)
-            if not isinstance(list_of_dicts, list):
-                raise ValueError("Expected a JSON list of metadata entries.")
-            
-            instance = MetaDataInstance()
-            for item_dict in list_of_dicts:
-                # Convert string timestamp back to datetime object
-                if 'time_stamp' in item_dict and item_dict['time_stamp']:
-                    item_dict['time_stamp'] = datetime.fromisoformat(item_dict['time_stamp'])
-                instance.append(MetaDataEntry(**item_dict))
-            return instance
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            print(f"Error parsing MetaDataInstance from string: {e}")
-            return MetaDataInstance()
+
+        list_of_dicts = json.loads(label)
+        if not isinstance(list_of_dicts, list):
+            raise ValueError("Expected a JSON list of metadata entries.")
+        
+        instance = MetaDataInstance()
+        for item_dict in list_of_dicts:
+            # Convert string timestamp back to datetime object
+            if 'time_stamp' in item_dict and item_dict['time_stamp']:
+                item_dict['time_stamp'] = datetime.fromisoformat(item_dict['time_stamp'])
+            instance.append(MetaDataEntry(**item_dict))
+        return instance
 
 
 class Prompts(StrEnum):
