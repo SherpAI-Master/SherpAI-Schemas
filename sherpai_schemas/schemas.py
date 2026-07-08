@@ -9,11 +9,28 @@ from enum import Enum
 from datetime import datetime, timezone
 from typing import Optional
 import json
+from pydantic import BaseModel
 
 import pandas as pd
 from enum import StrEnum
 
 
+class ToolID(Enum):
+    """Enumerates all possible tools with unique IDs."""
+    CORRECTION_FORMATTING_TIER1 = 1
+    CORRECTION_INCOMPLETE_TIER1 = 2
+    CORRECTION_MISPLACED_TIER1 = 3
+    CORRECTION_MISSPELLED_TIER1 = 4
+    CORRECTION_VALIDATION_MISSING_TIER1 = 5
+    DETECTION_FORMATTING_TIER1 = 6
+    DETECTION_INCOMPLETE_TIER1 = 7
+    DETECTION_MISPLACED_TIER1 = 8
+    DETECTION_MISSING_TIER1 = 9
+    DETECTION_MISSPELLED_TIER1 = 10
+    DETECTION_VALIDATION_TIER1 = 11
+    INTEGRATION_DITTO_TIER1 = 12
+    INTEGRATION_DUPLICATION_PAIRS_TIER1 = 13
+    
 class ProblemID(Enum):
     """Enumerates all possible problem categories with unique IDs."""
 
@@ -24,9 +41,25 @@ class ProblemID(Enum):
     MISSING_VALUE = 5
     VALIDATION = 6
 
+class Acceptance(BaseModel):
+    value: bool
+    reason: str
+    user: str
+    time_stamp: datetime 
 
-@dataclass
-class ProblemInstance:
+class ToolUse(BaseModel):
+    value: str
+    reason: str
+    used_tool: ToolID
+    time_stamp: datetime
+    accepted: Acceptance
+    
+class Pair(BaseModel):
+    affected_col: str
+    problem: ToolUse
+    solution: ToolUse
+    
+class SherpAiInstance(BaseModel):
     """Identified problems in a data row.
 
     Here, the attribute name is the problem type and the lists contain the affected rows
@@ -46,180 +79,14 @@ class ProblemInstance:
     validation: list[str] = field(default_factory=list)
 
     def __str__(self) -> str:
-        """Compact string representation like 3[col1,col2]5[col3,col2]7[col1,col3]."""
-        return "".join(
-            f"{pid.value}{getattr(self, pid.name.lower())}" for pid in ProblemID if getattr(self, pid.name.lower())
-        )
+        """Convert SherpAiInstance into json-format"""
+        return self.model_dump_json()
+    
 
     @staticmethod
-    def parse_from_str(label: str) -> ProblemInstance:
-        """Convert ProblemID string back into a Identified problem object.
-
-        :param label: ProbelmIDs field of data
-        :type label: str
-        :return: Identified Problems object
-        :rtype: ProblemInstance
-        """
-        ident_probs = ProblemInstance()
-        pattern = r"(\d)(\[.+?\])"
-        problems = re.findall(pattern, label)
-
-        for prob_id, affected_cols in problems:
-            attr = ProblemID(int(prob_id)).name.lower()
-            setattr(ident_probs, attr, ast.literal_eval(affected_cols))
-
-        return ident_probs
-
-
-@dataclass
-class Fix:
-    """Base class for fixes with reason."""
-
-    value: str | int | None = None
-    reason: str | None = None
-
-    def has_value(self) -> bool:
-        """Check if Fix has a meaningful value."""
-        return self.value is not None
-
-
-@dataclass
-class SolutionInstance:
-    """Proposed fixes for each column of a row."""
-
-    hybrid: Fix = field(default_factory=Fix)
-    typ: Fix = field(default_factory=Fix)
-    nr: Fix = field(default_factory=Fix)
-    klassifik: Fix = field(default_factory=Fix)
-    name1: Fix = field(default_factory=Fix)
-    zeile1: Fix = field(default_factory=Fix)
-    plz: Fix = field(default_factory=Fix)
-    ort: Fix = field(default_factory=Fix)
-    land: Fix = field(default_factory=Fix)
-    ustid: Fix = field(default_factory=Fix)
-    steuernr: Fix = field(default_factory=Fix)
-
-    def is_empty(self) -> bool:
-        """Return True if all Fix fields are empty."""
-        return all(not getattr(self, f.name).has_value() for f in fields(self))
-
-    def combine(self, other: SolutionInstance) -> None:
-        """Combine two Proposals. Keep self values if present; otherwise take from other.""" # Testing with overwriting
-        if not isinstance(other, SolutionInstance):
-            msg = f"Not type of SolutionInstance! Its of type{type(other)}."
-            raise TypeError(msg)
-
-        for f in fields(self):
-            # current_fix: Fix = getattr(self, f.name)
-            other_fix: Fix = getattr(other, f.name)
-            if other_fix.has_value(): # not current_fix.has_value() and 
-                setattr(self, f.name, other_fix)
-
-    def apply_proposal(self, row: pd.Series) -> pd.Series:
-        """Apply proposal to a df row.
-
-        :param row: Current row where changes are injected into
-        :type row: pd.Series
-        :return: New row with changes implemented
-        :rtype: pd.Series
-        """
-        if self.is_empty():
-            return row
-
-        for f in fields(self):
-            fix_obj = getattr(self, f.name)
-            if fix_obj.has_value() and f.name in row.index:
-                row[f.name] = fix_obj.value
-
-        # maybe reset with: proposal row["SolutionInstance"] = SolutionInstance()
-        return row
-
-    def __str__(self) -> str:
-        """Pretty-print all fields using only Fix.value."""
-        final_string = ""
-        for f in fields(self):
-            field_fix: Fix = getattr(self, f.name)
-            if field_fix.value or field_fix.reason:
-                final_string += f"{f.name}['{field_fix.value}','{field_fix.reason}']"
-        return final_string
-
-    @staticmethod
-    def parse_from_str(label: str) -> SolutionInstance:
-        """Parse SolutionInstance from string into python object.
-
-        :param data: SolutionInstance in dict format (from a stringified JSONL file)
-        :type data: dict
-        :return: Python SolutionInstance objects
-        :rtype: SolutionInstance
-        """
-        fix_proposal = SolutionInstance()
-        pattern = r"([a-zA-Z0-9_]+)\[([^,\]]+),([^\]]+)\]"  # col_name1[value, reasons]
-        fixes = re.findall(pattern, label)
-        found_fixes = {col_name: (value, reason) for col_name, value, reason in fixes}
-
-        for f in fields(SolutionInstance):
-            if f.name in found_fixes:
-                final_value = found_fixes[f.name][0] or None
-                final_reason = found_fixes[f.name][1] or None
-                fix = Fix(value=ast.literal_eval(final_value or ""), reason=ast.literal_eval(final_reason or ""))
-                setattr(fix_proposal, f.name, fix)
-            else:
-                setattr(fix_proposal, f.name, Fix(value=None, reason=None))
-
-        return fix_proposal
-
-
-@dataclass
-class MetaDataEntry:
-    """A single entry for metadata, containing details about a process event."""
-    tool_name: str
-    time_stamp: datetime
-    trainable: bool = False
-    model_name: Optional[str] = None
-    notes: Optional[str] = None
-
-    def to_dict(self) -> dict:
-        return {
-            "tool_name": self.tool_name,
-            "time_stamp": self.time_stamp.isoformat(),
-            "trainable": self.trainable,
-            "model_name": self.model_name,
-            "notes": self.notes,
-        }
-
-
-class MetaDataInstance(list[MetaDataEntry]):
-    """Preservation of process events and orders."""
-
-    def __str__(self) -> str:
-        # Serialize the list of MetaDataEntry objects
-        return json.dumps([item.to_dict() for item in self], ensure_ascii=False)
-
-    def now(
-        self,
-        tool_name: str,
-        trainable: bool,
-        model_name: Optional[str] = None,
-        notes: Optional[str] = None,
-        
-    ) -> "MetaDataInstance":
-        """Convenience factory that auto-fills the current timestamp and returns a MetaDataInstance with one entry."""
-        self.append(MetaDataEntry(tool_name, datetime.now(timezone.utc), trainable, model_name, notes))
-
-
-    @staticmethod
-    def parse_from_str(label: str| list) -> "MetaDataInstance":
-        """Convert string representation of MetaDataInstance back into an object."""
-
-        list_of_dicts = json.loads(label) if isinstance(label, str) else label
-        if not isinstance(list_of_dicts, list):
-            raise ValueError("Expected a JSON list of metadata entries.")
-        
-        instance = MetaDataInstance()
-        for item_dict in list_of_dicts:
-            item_dict["time_stamp"] = datetime.fromisoformat(item_dict["time_stamp"])
-            instance.append(MetaDataEntry(**item_dict))
-        return instance
+    def parse_from_json(label: str) -> SherpAiInstance:
+        """Convert ProblemID string back into a Identified problem object."""
+        return SherpAiInstance.model_validate_json(label)
 
 
 class Prompts(StrEnum):
