@@ -52,7 +52,7 @@ class Acceptance(BaseModel):
 
 
 class ToolUse(BaseModel):
-    value: list[str] = Field(default_factory=list)
+    value: list[str|int] = Field(default_factory=list)
     reason: str = ""
     used_tool: ToolID | None = None
     time_stamp: datetime = Field(default_factory=_now)
@@ -60,7 +60,7 @@ class ToolUse(BaseModel):
 
 
 class Pair(BaseModel):
-    affected_col: list[str] = Field(default_factory=list)
+    affected_col: list[str|int] = Field(default_factory=list)
     problem: ToolUse | None = None
     solution: ToolUse | None = None
     
