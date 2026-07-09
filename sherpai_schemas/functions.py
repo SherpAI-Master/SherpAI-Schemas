@@ -3,12 +3,10 @@
 import pandas as pd
 import re
 import ast
-import json
 
 from typing import Any
-from dataclasses import fields
 
-from .schemas import ProblemInstance, SolutionInstance, MetaDataInstance
+from .schemas import SherpAIInstance
 
 
 def parse_dimensions_from_str(df: pd.DataFrame):
@@ -16,10 +14,7 @@ def parse_dimensions_from_str(df: pd.DataFrame):
 
     :param df: DataFrame containing all added data dimensions
     """
-    df["ProblemSpace"] = df["ProblemSpace"].apply(ProblemInstance.parse_from_str)
-    df["SolutionSpace"] = df["SolutionSpace"].apply(SolutionInstance.parse_from_str)
-    df["MetaDataSpace"] = df["MetaDataSpace"].apply(MetaDataInstance.parse_from_str)
-
+    df["SherpAISpace"] = df["SherpAISpace"].apply(SherpAIInstance.parse_from_str)
     return df
 
 
@@ -28,10 +23,7 @@ def parse_dimensions_to_str(df: pd.DataFrame):
 
     :param df: DataFrame containing all added data dimensions
     """
-    df["ProblemSpace"] = df["ProblemSpace"].map(str)
-    df["SolutionSpace"] = df["SolutionSpace"].map(str) # Maybe create new instance each time
-    df["MetaDataSpace"] = df["MetaDataSpace"].apply(lambda x: json.loads(str(x)))
-
+    df["SherpAISpace"] = df["SherpAISpace"].map(str)
     return df
 
 
@@ -41,12 +33,26 @@ def get_pure_data(data_row: pd.Series) -> pd.Series:
     :param data_row: Row of a pd.DataFrame
     :return: Altered pd.Series without 3 added data dimensions.
     """
-    allowed_columns = [f.name for f in fields(SolutionInstance)]
+    allowed_columns = [
+        "hybrid",
+        "typ",
+        "nr",
+        "klassifik",
+        "name1",
+        "zeile1",
+        "plz",
+        "ort",
+        "land",
+        "ustid",
+        "steuernr",
+    ]
+
     existing_allowed = [col for col in allowed_columns if col in data_row.index]
     return data_row[existing_allowed]
 
+
 def smart_cast(value: str, return_on_fail: Any) -> any:
-    """Trun LLM response into python literals.
+    """Turn LLM response into python literals.
 
     :param value: LLM response
     :param return_on_fail: Default object when failed

@@ -59,7 +59,7 @@ class Pair(BaseModel):
     problem: ToolUse
     solution: ToolUse
     
-class SherpAiInstance(BaseModel):
+class SherpAIInstance(BaseModel):
     """Identified problems in a data row.
 
     Here, the attribute name is the problem type and the lists contain the affected rows
@@ -84,9 +84,9 @@ class SherpAiInstance(BaseModel):
     
 
     @staticmethod
-    def parse_from_json(label: str) -> SherpAiInstance:
+    def parse_from_json(label: str) -> SherpAIInstance:
         """Convert ProblemID string back into a Identified problem object."""
-        return SherpAiInstance.model_validate_json(label)
+        return SherpAIInstance.model_validate_json(label)
 
 
 class Prompts(StrEnum):
