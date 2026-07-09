@@ -85,6 +85,8 @@ class SherpAIInstance(BaseModel):
     @staticmethod
     def parse_from_str(label: str) -> SherpAIInstance:
         """Convert ProblemID string back into a Identified problem object."""
+        if not label:
+            return SherpAIInstance()
         return SherpAIInstance.model_validate_json(label)
 
 
