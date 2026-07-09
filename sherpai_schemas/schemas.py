@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 import re
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime, timezone
 from typing import Optional
@@ -52,7 +52,7 @@ class Acceptance(BaseModel):
 
 
 class ToolUse(BaseModel):
-    value: str = ""
+    value: list[str] = Field(default_factory=list)
     reason: str = ""
     used_tool: ToolID | None = None
     time_stamp: datetime = Field(default_factory=_now)
@@ -60,7 +60,7 @@ class ToolUse(BaseModel):
 
 
 class Pair(BaseModel):
-    affected_col: str = ""
+    affected_col: list[str] = Field(default_factory=list)
     problem: ToolUse | None = None
     solution: ToolUse | None = None
     
@@ -76,12 +76,12 @@ class SherpAIInstance(BaseModel):
     - validation: Contradicting outside information spotted                     6
     """
 
-    incomplete: list[Pair] = field(default_factory=list)
-    misplaced: list[Pair] = field(default_factory=list)
-    formatting: list[Pair] = field(default_factory=list)
-    misspelled: list[Pair] = field(default_factory=list)
-    missing_value: list[Pair] = field(default_factory=list)
-    validation: list[Pair] = field(default_factory=list)
+    incomplete: list[Pair] = Field(default_factory=list)
+    misplaced: list[Pair] = Field(default_factory=list)
+    formatting: list[Pair] = Field(default_factory=list)
+    misspelled: list[Pair] = Field(default_factory=list)
+    missing_value: list[Pair] = Field(default_factory=list)
+    validation: list[Pair] = Field(default_factory=list)
 
     def __str__(self) -> str:
         """Convert SherpAiInstance into json-format"""
