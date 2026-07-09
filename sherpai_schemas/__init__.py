@@ -5,6 +5,10 @@ from .vectordb_interface import vectorize_data, query_db
 
 __all__ = [
     "SherpAIInstance",
+    "ToolUse",
+    "Pair",
+    "Acceptance",
+    "ToolID",
     "ProblemID",
     "Prompts",
     "FormattingRules",

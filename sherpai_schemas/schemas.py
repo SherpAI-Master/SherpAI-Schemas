@@ -9,14 +9,13 @@ from enum import Enum
 from datetime import datetime, timezone
 from typing import Optional
 import json
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import pandas as pd
 from enum import StrEnum
 
 
 class ToolID(Enum):
-    """Enumerates all possible tools with unique IDs."""
     CORRECTION_FORMATTING_TIER1 = 1
     CORRECTION_INCOMPLETE_TIER1 = 2
     CORRECTION_MISPLACED_TIER1 = 3
@@ -30,10 +29,9 @@ class ToolID(Enum):
     DETECTION_VALIDATION_TIER1 = 11
     INTEGRATION_DITTO_TIER1 = 12
     INTEGRATION_DUPLICATION_PAIRS_TIER1 = 13
-    
-class ProblemID(Enum):
-    """Enumerates all possible problem categories with unique IDs."""
 
+
+class ProblemID(Enum):
     INCOMPLETE = 1
     MISPLACED = 2
     FORMATTING = 3
@@ -41,23 +39,30 @@ class ProblemID(Enum):
     MISSING_VALUE = 5
     VALIDATION = 6
 
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 class Acceptance(BaseModel):
-    value: bool
-    reason: str
-    user: str
-    time_stamp: datetime 
+    value: bool = False
+    reason: str = ""
+    user: str = ""
+    time_stamp: datetime = Field(default_factory=_now)
+
 
 class ToolUse(BaseModel):
-    value: str
-    reason: str
-    used_tool: ToolID
-    time_stamp: datetime
-    accepted: Acceptance
-    
+    value: str = ""
+    reason: str = ""
+    used_tool: ToolID | None = None
+    time_stamp: datetime = Field(default_factory=_now)
+    accepted: Acceptance | None = None   # not reviewed yet
+
+
 class Pair(BaseModel):
-    affected_col: str
-    problem: ToolUse
-    solution: ToolUse
+    affected_col: str = ""
+    problem: ToolUse | None = None
+    solution: ToolUse | None = None
     
 class SherpAIInstance(BaseModel):
     """Identified problems in a data row.
