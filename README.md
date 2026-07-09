@@ -10,35 +10,19 @@ pip install git+https://github.com/SherpAI-Master/SherpAI-Schemas.git
 
 ## Schemas
 
-### ProblemInstance
+### SherpAIInstance
 Tracks identified data quality issues in a row, categorized by type: `incomplete`, `misplaced`, `formatting`, `misspelled`, `missing_value`, `validation`.
 
-### SolutionInstance
-Holds proposed fixes for each column of a row. Each fix is a `Fix` object containing a `value` and a `reason`.
+### Pair
 
-### Fix
-Base fix object with an optional `value` and `reason`.
+### ToolUse
 
-### MetaDataInstance
-Preserves process events and execution order metadata.
+### Acceptance
 
 ## Usage
 
-```python
-from sherpai_schemas import ProblemInstance, Fix, SolutionInstance
+### Todo Example
 
-# Create a problem instance
-problem = ProblemInstance(incomplete=["col1"], misspelled=["col2"])
-print(problem)  # 1['col1']4['col2']
-
-# Create a solution
-solution = SolutionInstance()
-solution.name1 = Fix(value="John", reason="Corrected spelling")
-
-# Parse from string
-problem = ProblemInstance.parse_from_str("1['col1']4['col2']")
-solution = SolutionInstance.parse_from_str("name1['John','Corrected spelling']")
-```
 
 ## Requirements
 

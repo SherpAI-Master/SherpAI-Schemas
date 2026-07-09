@@ -71,20 +71,19 @@ class SherpAIInstance(BaseModel):
     - validation: Contradicting outside information spotted                     6
     """
 
-    incomplete: list[str] = field(default_factory=list)
-    misplaced: list[str] = field(default_factory=list)
-    formatting: list[str] = field(default_factory=list)
-    misspelled: list[str] = field(default_factory=list)
-    missing_value: list[str] = field(default_factory=list)
-    validation: list[str] = field(default_factory=list)
+    incomplete: list[Pair] = field(default_factory=list)
+    misplaced: list[Pair] = field(default_factory=list)
+    formatting: list[Pair] = field(default_factory=list)
+    misspelled: list[Pair] = field(default_factory=list)
+    missing_value: list[Pair] = field(default_factory=list)
+    validation: list[Pair] = field(default_factory=list)
 
     def __str__(self) -> str:
         """Convert SherpAiInstance into json-format"""
         return self.model_dump_json()
     
-
     @staticmethod
-    def parse_from_json(label: str) -> SherpAIInstance:
+    def parse_from_str(label: str) -> SherpAIInstance:
         """Convert ProblemID string back into a Identified problem object."""
         return SherpAIInstance.model_validate_json(label)
 
