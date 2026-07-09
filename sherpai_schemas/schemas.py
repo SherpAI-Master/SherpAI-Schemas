@@ -52,7 +52,7 @@ class Acceptance(BaseModel):
 
 
 class ToolUse(BaseModel):
-    value: list[str|int|float] = Field(default_factory=list)
+    value: list[str|int|float|None] = Field(default_factory=list)
     reason: str = ""
     used_tool: ToolID | None = None
     time_stamp: datetime = Field(default_factory=_now)
