@@ -1,6 +1,6 @@
 from .schemas import SherpAIInstance, ProblemID, Prompts, FormattingRules
 from .functions import parse_dimensions_from_str, parse_dimensions_to_str, get_pure_data, smart_cast
-from .llm_interface import inference_conversation, batch_vectorization, inference_completion, batch_inference_address_extraction, batch_inference_klassifik, batch_inference_fix_formatting, batch_inference_fix_incomplete
+from .llm_interface import inference_conversation, batch_vectorization, inference_completion
 from .vectordb_interface import vectorize_data, query_db
 
 __all__ = [
@@ -17,10 +17,10 @@ __all__ = [
     "inference_conversation",
     "inference_completion",
     "batch_vectorization",
-    "batch_inference_address_extraction",
-    "batch_inference_klassifik",
-    "batch_inference_fix_formatting",
-    "batch_inference_fix_incomplete",
+    #"batch_inference_address_extraction",
+    #"batch_inference_klassifik",
+    #"batch_inference_fix_formatting",
+    #"batch_inference_fix_incomplete",
 
     "vectorize_data",
     "query_db",
