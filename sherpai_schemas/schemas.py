@@ -93,8 +93,27 @@ class SherpAIInstance(BaseModel):
         if not label:
             return SherpAIInstance()
         return SherpAIInstance.model_validate_json(label)
-
-
+    
+    def get_affected_cols(self,*args) -> list[str]:
+        """get all problem cols of this instace"""
+        if not args:
+            return []
+        
+        affected_cols = set()
+        
+        for arg in args:
+            if not hasattr(self,arg):
+                msg = f"Instance has no attribute {arg}"
+                raise AttributeError(msg)
+            
+            problem_list = getattr(self,arg)
+            for pair in problem_list:
+                affected_cols.update(pair.affected_col)
+                
+        return list(affected_cols)        
+            
+            
+        
 class Prompts(StrEnum):
     """Contains all prompts of the problem identification, fixAIs."""
 
