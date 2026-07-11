@@ -94,8 +94,8 @@ class SherpAIInstance(BaseModel):
             return SherpAIInstance()
         return SherpAIInstance.model_validate_json(label)
     
-    def get_affected_cols(self,*args) -> list[str]:
-        """get all problem cols of this instace"""
+    def get_affected_cols(self, *args) -> list[str]:
+        """Get all problem cols of this instance"""
         if not args:
             return []
         
@@ -110,10 +110,33 @@ class SherpAIInstance(BaseModel):
             for pair in problem_list:
                 affected_cols.update(pair.affected_col)
                 
-        return list(affected_cols)        
-            
-            
-        
+        return list(affected_cols)
+
+    def get_recent_solution_data(self, data_row: pd.Series) -> pd.Series:
+        """Update current data with most recent solutions"""
+        latest: dict[str, tuple[datetime, str | int | float | None]] = {}
+
+        for problem_list in SherpAIInstance.model_fields:
+            pair_list = getattr(self, problem_list)
+            if not isinstance(pair_list, list):
+                continue
+
+            for pair in pair_list:
+                solution = pair.solution
+                if solution is None:
+                    continue
+
+                for col, value in zip(pair.affected_col, solution.value):
+                    if col not in latest or solution.time_stamp > latest[col][0]:
+                        latest[col] = (solution.time_stamp, value)
+
+        for col, (_, value) in latest.items():
+            if col in data_row.index:
+                data_row[col] = value
+
+        return data_row
+
+
 class Prompts(StrEnum):
     """Contains all prompts of the problem identification, fixAIs."""
 
