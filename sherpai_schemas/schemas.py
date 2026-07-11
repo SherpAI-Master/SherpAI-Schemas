@@ -112,7 +112,7 @@ class SherpAIInstance(BaseModel):
                 
         return list(affected_cols)
 
-    def get_recent_solution_data(self, data_row: pd.Series) -> pd.Series:
+    def apply_solutions(self, data_row: pd.Series) -> pd.Series:
         """Update current data with most recent solutions"""
         latest: dict[str, tuple[datetime, str | int | float | None]] = {}
 
