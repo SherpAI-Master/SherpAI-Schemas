@@ -40,30 +40,44 @@ class ProblemID(Enum):
     VALIDATION = 6
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+class ReviewStatus(str, Enum):
+    """The status of the user review."""
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
 
 
-class Acceptance(BaseModel):
-    value: bool = False
+class Phase(str, Enum):
+    """Where a ToolUse sits in the processing pipeline."""
+    BATCHING_READY = "batching_ready"
+    REVIEW_READY = "review_ready"
+    DONE = "done"
+
+
+class State(BaseModel):
+    """The review outcome + who/why/when. Always present, defaults to pending."""
+    status: ReviewStatus = ReviewStatus.PENDING
     reason: str = ""
     user: str = ""
-    time_stamp: datetime = Field(default_factory=_now)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ToolUse(BaseModel):
-    value: list[str|int|float|None] = Field(default_factory=list)
+    args: list[str | int | float | None] = Field(default_factory=list)
     reason: str = ""
-    used_tool: ToolID | None = None
-    time_stamp: datetime = Field(default_factory=_now)
-    accepted: Acceptance | None = None   # not reviewed yet
+    tool_id: ToolID | None = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    phase: Phase = Phase.IN_REVIEW
+    state: State = Field(default_factory=State)
 
 
 class Pair(BaseModel):
+    row_id: str
     affected_col: list[str|int|float] = Field(default_factory=list)
     problem: ToolUse | None = None
     solution: ToolUse | None = None
-    
+
+
 class SherpAIInstance(BaseModel):
     """Identified problems in a data row.
 
@@ -127,8 +141,8 @@ class SherpAIInstance(BaseModel):
                     continue
 
                 for col, value in zip(pair.affected_col, solution.value):
-                    if col not in latest or solution.time_stamp > latest[col][0]:
-                        latest[col] = (solution.time_stamp, value)
+                    if col not in latest or solution.timestamp > latest[col][0]:
+                        latest[col] = (solution.timestamp, value)
 
         for col, (_, value) in latest.items():
             if col in data_row.index:
