@@ -63,10 +63,10 @@ class State(BaseModel):
 
 
 class ToolUse(BaseModel):
-    args: list[str | int | float | None] = Field(default_factory=list)
+    value: list[str | int | float | None] = Field(default_factory=list)
     reason: str = ""
     tool_id: ToolID | None = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime | None = Field(default_factory=lambda: datetime.now(timezone.utc)) if tool_id else None # Only timestamp when solution made/ problem identified (no intermediate steps)
     phase: Phase = Phase.IN_REVIEW
     state: State = Field(default_factory=State)
 

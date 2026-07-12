@@ -1,4 +1,4 @@
-from .schemas import SherpAIInstance, ToolUse, Pair, Acceptance, ToolID, ProblemID, Prompts, FormattingRules
+from .schemas import SherpAIInstance, ToolUse, Pair, Phase, State, ReviewStatus, ToolID, ProblemID, Prompts, FormattingRules
 from .functions import parse_dimensions_from_str, parse_dimensions_to_str, get_pure_data, smart_cast
 from .llm_interface import inference_conversation, batch_vectorization, inference_completion
 from .vectordb_interface import vectorize_data, query_db
@@ -7,9 +7,11 @@ __all__ = [
     "SherpAIInstance",
     "ToolUse",
     "Pair",
-    "Acceptance",
     "ToolID",
     "ProblemID",
+    "ReviewStatus",
+    "Phase",
+    "State",
     "Prompts",
     "FormattingRules",
 
