@@ -154,15 +154,15 @@ def sherpai_completion(
                 pending_toolUse.append(tool_use)
                 prompts.append(_format_gemma_prompt(system_prompt, next(iter(tool_use.value.values()))))
 
-    if not tool_use:
+    if not pending_toolUse:
         return sherpai_col
 
     results: list[LlmResponse] = inference_completion(model=model, prompt=prompts, max_tokens=max_tokens)
-    if len(results) != len(tool_use):
+    if len(results) != len(pending_toolUse):
         msg = "Mismatch between number of prompts sent and results received"
         raise ValueError(msg)
 
-    for pair, result in zip(tool_use, results):
+    for tool_use, result in zip(pending_toolUse, results):
         print(result, type(result))
         tool_use.value[0] = result
         tool_use.phase = Phase.REVIEW_READY
