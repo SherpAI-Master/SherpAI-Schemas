@@ -136,7 +136,7 @@ class SherpAIInstance(BaseModel):
 
             problem_list = getattr(self, arg)
             for pair in problem_list:
-                affected_cols.update(pair.problem.value.keys())
+                affected_cols.update(pair.problem.value)
 
         return list(affected_cols)
 
