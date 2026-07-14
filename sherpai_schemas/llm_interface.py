@@ -103,10 +103,12 @@ def inference_completion(
 
         result = response.json()
         choices = sorted(result["choices"], key=lambda c: c.get("index", 0))
+        print("ALL CHOICES", choices)
         parsed: list[LlmResponse] = []
         for choice in choices:
             try:
                 parsed.append(LlmResponse.model_validate_json(choice["text"]))
+                print("ONE PARSED THING: ", LlmResponse.model_validate_json(choice["text"]))
             except ValidationError as e:
                 parsed.append(LlmResponse(fixes=[
                     Fix(column="", corrected_value="", reason=f"Failed to parse model output: {e}")
@@ -128,7 +130,6 @@ def sherpai_completion(
     problem_type: str,
     toolUse_type: str,
     system_prompt: Prompts,
-    tool_id: ToolID,
     max_tokens=60,
     model="unsloth/gemma-3-27b-it-bnb-4bit",
 ) -> pd.Series:
