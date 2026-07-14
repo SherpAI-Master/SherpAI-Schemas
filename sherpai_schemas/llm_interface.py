@@ -170,9 +170,9 @@ def sherpai_completion(
 
     for tool_use, llm_response in zip(pending_toolUse, results):
         for fix in llm_response:
+            print("HERE FIX", fix, type(fix))
+            print("HERE TOOLUSE", tool_use, type(tool_use))
             tool_use.value[fix.column] = fix.corrected_value
-            print("HERE FIX", fix)
-            print("HERE TOOLUSE", tool_use)
             tool_use.reason = fix.reason
             tool_use.phase = Phase.REVIEW_READY
 
