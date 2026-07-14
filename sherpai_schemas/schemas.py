@@ -18,7 +18,9 @@ from enum import StrEnum
 class Fix(BaseModel):
     column: str = Field(..., description="Name of the column being corrected")
     corrected_value: str = Field(..., description="The corrected value, as a string")
-    reason: str = Field(..., description="Brief explanation for why this correction was made")
+    reason: str = Field(
+        ..., description="Brief explanation for why this correction was made"
+    )
 
 
 class LlmResponse(BaseModel):
@@ -79,9 +81,7 @@ class ToolUse(BaseModel):
     value: dict[str, str | int | float | None] = Field(default_factory=dict)
     reason: str = ""
     tool_id: ToolID
-    timestamp: datetime = (
-        Field(default_factory=lambda: datetime.now(timezone.utc))
-    )
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     phase: Phase = Phase.REVIEW_READY
     state: State = Field(default_factory=State)
 
@@ -247,15 +247,28 @@ class Prompts(StrEnum):
 
         Your task:
         1. Extract the correct value for column "{missing_col}" from the text "{overfilled_value}".
-        2. Return the corrected values for both columns.
-        3. Output **only** valid JSON in this exact format:
+        2. Determine the cleaned value for column "{overfilled_col}" with the extracted part removed.
+        3. Return a fix for **both** columns.
+        4. Output **only** valid JSON in this exact format:
         {{
-            "{missing_col}": "<extracted_value>",
-            "{overfilled_col}": "<cleaned_value>"
+            "fixes": [
+                {{
+                    "column": "{missing_col}",
+                    "corrected_value": "<extracted_value>",
+                    "reason": "<brief explanation for this correction>"
+                }},
+                {{
+                    "column": "{overfilled_col}",
+                    "corrected_value": "<cleaned_value>",
+                    "reason": "<brief explanation for this correction>"
+                }}
+            ]
         }}
 
         Rules:
-        - Do not include any explanation or extra text.
+        - The "fixes" list must contain exactly two entries, one per column above, in that order.
+        - "reason" must be a short, single-sentence explanation — no extra commentary elsewhere.
+        - Do not include any explanation or extra text outside the JSON object.
         - If you are uncertain, make the most reasonable inference from the provided value.
         """
     EXTRACT_ADDRESS_SYSTEM = """You extract addresses from google search snippets. The correct schema is: {\"street\": \"street and street nr\",\"city\": \"city\",\"zip\": \"#####\",\"country\": \"country\"}. If no address is found or the address does not make sense, return an empty JSON object "{}" with no commentary. Respons strictly in JSON!"""
