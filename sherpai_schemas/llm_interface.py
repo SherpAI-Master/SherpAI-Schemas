@@ -81,7 +81,13 @@ def inference_completion(
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": False,
-        "guided_json": LlmResponse.model_json_schema(),
+        "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "llm_response",
+                    "schema": LlmResponse.model_json_schema()
+                }
+            }
     }
 
     headers = {"Content-Type": "application/json"}
