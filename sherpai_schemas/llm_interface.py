@@ -7,7 +7,7 @@ import pandas as pd
 from collections import defaultdict
 from pydantic import BaseModel, ValidationError
 
-from .schemas import Prompts, Pair, ToolUse, SherpAIInstance, Phase, LlmResponse, Fix
+from .schemas import Prompts, ToolID, ToolUse, SherpAIInstance, Phase, LlmResponse, Fix
 from .functions import smart_cast
 
 
@@ -123,23 +123,12 @@ def inference_completion(
         ])] * n_prompts
 
 
-def _parse_result(raw_text: str, schema_class: type[BaseModel]) -> BaseModel | None:
-    """Validate a raw LLM completion string against schema_class."""
-    text = raw_text.strip()
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        text = match.group(0)
-    try:
-        return schema_class.model_validate_json(text)
-    except ValidationError:
-        return None
-
-
 def sherpai_completion(
     sherpai_col: pd.Series,
     problem_type: str,
     toolUse_type: str,
     system_prompt: Prompts,
+    tool_id: ToolID,
     max_tokens=60,
     model="unsloth/gemma-3-27b-it-bnb-4bit",
 ) -> pd.Series:
@@ -168,13 +157,12 @@ def sherpai_completion(
         msg = "Mismatch between number of prompts sent and results received"
         raise ValueError(msg)
 
-    for tool_use, llm_response in zip(pending_toolUse, results):
+    for i, (_, llm_response) in enumerate(zip(pending_toolUse, results)):
+        new_tool_use = ToolUse(value={}, tool_id=tool_id)
         for fix in llm_response.fixes:
-            print("HERE FIX", fix, type(fix))
-            print("HERE TOOLUSE", tool_use, type(tool_use))
-            tool_use.value[fix.column] = fix.corrected_value
-            tool_use.reason = fix.reason
-            tool_use.phase = Phase.REVIEW_READY
+            new_tool_use.value[fix.column] = fix.corrected_value
+            new_tool_use.reason = fix.reason
+        pending_toolUse[i] = new_tool_use
 
     return sherpai_col
 
