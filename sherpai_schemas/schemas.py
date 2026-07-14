@@ -158,7 +158,7 @@ class SherpAIInstance(BaseModel):
                 if solution is None:
                     continue
 
-                for col, value in zip(pair.affected_col, solution.value):
+                for col, value in solution.value.items():
                     if col not in latest or solution.timestamp > latest[col][0]:
                         latest[col] = (solution.timestamp, value)
 
