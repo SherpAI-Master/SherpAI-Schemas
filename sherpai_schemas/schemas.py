@@ -15,6 +15,16 @@ import pandas as pd
 from enum import StrEnum
 
 
+class Fix(BaseModel):
+    column: str = Field(..., description="Name of the column being corrected")
+    corrected_value: str = Field(..., description="The corrected value, as a string")
+    reason: str = Field(..., description="Brief explanation for why this correction was made")
+
+
+class LlmResponse(BaseModel):
+    fixes: list[Fix]
+
+
 class ToolID(Enum):
     CORRECTION_FORMATTING_TIER1 = 1
     CORRECTION_INCOMPLETE_TIER1 = 2
@@ -42,6 +52,7 @@ class ProblemID(Enum):
 
 class ReviewStatus(str, Enum):
     """The status of the user review."""
+
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
@@ -49,6 +60,7 @@ class ReviewStatus(str, Enum):
 
 class Phase(str, Enum):
     """Where a ToolUse sits in the processing pipeline."""
+
     BATCHING_READY = "batching_ready"
     REVIEW_READY = "review_ready"
     DONE = "done"
@@ -56,6 +68,7 @@ class Phase(str, Enum):
 
 class State(BaseModel):
     """The review outcome + who/why/when. Always present, defaults to pending."""
+
     status: ReviewStatus = ReviewStatus.PENDING
     reason: str = ""
     user: str = ""
@@ -63,17 +76,18 @@ class State(BaseModel):
 
 
 class ToolUse(BaseModel):
-    value: list[str | int | float | None] = Field(default_factory=list)
+    value: dict[str, str | int | float | None] = Field(default_factory=dict)
     reason: str = ""
     tool_id: ToolID | None = None
-    timestamp: datetime | None = Field(default_factory=lambda: datetime.now(timezone.utc)) if tool_id else None # Only timestamp when solution made/ problem identified (no intermediate steps)
+    timestamp: datetime | None = (
+        Field(default_factory=lambda: datetime.now(timezone.utc)) if tool_id else None
+    )  # Only timestamp when solution made/ problem identified (no intermediate steps)
     phase: Phase = Phase.IN_REVIEW
     state: State = Field(default_factory=State)
 
 
 class Pair(BaseModel):
     row_id: str
-    affected_col: list[str|int|float] = Field(default_factory=list)
     problem: ToolUse | None = None
     solution: ToolUse | None = None
 
@@ -100,30 +114,30 @@ class SherpAIInstance(BaseModel):
     def __str__(self) -> str:
         """Convert SherpAiInstance into json-format"""
         return self.model_dump_json()
-    
+
     @staticmethod
     def parse_from_str(label: str) -> SherpAIInstance:
         """Convert ProblemID string back into a Identified problem object."""
         if not label:
             return SherpAIInstance()
         return SherpAIInstance.model_validate_json(label)
-    
+
     def get_affected_cols(self, *args) -> list[str]:
-        """Get all problem cols of this instance"""
+        """Get all cols of a specific problem"""
         if not args:
             return []
-        
+
         affected_cols = set()
-        
+
         for arg in args:
-            if not hasattr(self,arg):
+            if not hasattr(self, arg):
                 msg = f"Instance has no attribute {arg}"
                 raise AttributeError(msg)
-            
-            problem_list = getattr(self,arg)
+
+            problem_list = getattr(self, arg)
             for pair in problem_list:
                 affected_cols.update(pair.affected_col)
-                
+
         return list(affected_cols)
 
     def apply_solutions(self, data_row: pd.Series) -> pd.Series:
@@ -182,22 +196,22 @@ class Prompts(StrEnum):
     You are a German Data Quality Specialist. Your task is to write out any abbreviations!
 
     # Instructions
-    You receive an string with abbreviations. Write out any other abbreviation and return the completed string with double quotes!
+    You receive an string with abbreviations. Write out any other abbreviation and return a JSON with corrected_value as its only key-value pair!
     Ignore standardized abbreviations like Co KG or Inc.
 
     # Examples
     Input: The value  "Manufaktur u. Produktion Dachmann" of column name1
-    Output: "Manufaktur und Produktion Dachmann"
+    Output: {"column": "name1", "corrected_value": "Manufaktur und Produktion Dachmann", reason: "'u.' hat die Bedeutung 'und'."}
 
-    Input: The value "Aluminiumwerk Hr. Meier" of column name1
-    Output: "Aluminiumwerk Herr Meier"
+    Input: The value "NY" of column ort
+    Output: {"column": "ort", "corrected_value": "New York", reason: "NY is a real abbreviation for New York."}
 
     # Input
     """
-    FIX_INCOMPLETE_USER="""
+    FIX_INCOMPLETE_USER = """
     The value"{col_value}" of column {col_name}
     """
-    
+
     FIX_FORMATTING_SYSTEM = """
     # Role
     You are a data formatting expert. Your task is to fix the formatting of data if possible!
@@ -222,7 +236,7 @@ class Prompts(StrEnum):
 
     # Input data
     """
-    FIX_FORMATTING_USER="""{{"format": "{col_rule}", "data": "{col_value}"}}"""
+    FIX_FORMATTING_USER = """{{"format": "{col_rule}", "data": "{col_value}"}}"""
     FIX_MISPLACED_SYSTEM = """You are a data-validation expert correcting mistakenly placed values in columns."""
     FIX_MISPLACED_USER = """A value from column "{missing_col}" was mistakenly placed inside 
         the value "{overfilled_value}" of column "{overfilled_col}".
@@ -269,10 +283,11 @@ class Prompts(StrEnum):
     # Input data
     """
 
+
 @dataclass(frozen=True)
 class FormattingRules:
     """Class holding the regex rules as pre-compiled patterns."""
-    
+
     hybrid: re.Pattern = re.compile(r"^PERS_\d_\d+$")
     iln: re.Pattern = re.compile(r".*")
     klassifik: re.Pattern = re.compile(r"^(10|20|90)$")
@@ -284,14 +299,15 @@ class FormattingRules:
     steuernr: re.Pattern = re.compile(r".*")
     typ: re.Pattern = re.compile(r"^[123]$")
     ustid: re.Pattern = re.compile(r"^[A-Z]{2}\d{9}$")
-    zeile1: re.Pattern = re.compile(r"^[A-ZÄÖÜa-zäöüß.\s-]+\s+\d+(\s*[/-]\s*\d+|[a-zA-Z])?\s*$")
+    zeile1: re.Pattern = re.compile(
+        r"^[A-ZÄÖÜa-zäöüß.\s-]+\s+\d+(\s*[/-]\s*\d+|[a-zA-Z])?\s*$"
+    )
 
     @staticmethod
     def get_pattern(column: str) -> str | None:
         """Retrieves the raw regex string for a specific column."""
         attr = getattr(FormattingRules, column.lower(), None)
         return attr.pattern if isinstance(attr, re.Pattern) else None
-
 
     @staticmethod
     def is_valid(column: str, value: any) -> bool:

@@ -4,15 +4,19 @@ import json
 import requests
 import re
 import pandas as pd
+from collections import defaultdict
+from pydantic import BaseModel, ValidationError
 
-from .schemas import Prompts
+from .schemas import Prompts, Pair, ToolUse, SherpAIInstance, Phase, LlmResponse, Fix
 from .functions import smart_cast
 
 
 def _format_gemma_prompt(system_prompt, user_prompt):
-    return (f"<start_of_turn>system\n{system_prompt}<end_of_turn>\n"
-            f"<start_of_turn>user\n{user_prompt}<end_of_turn>\n"
-            f"<start_of_turn>model\n")
+    return (
+        f"<start_of_turn>system\n{system_prompt}<end_of_turn>\n"
+        f"<start_of_turn>user\n{user_prompt}<end_of_turn>\n"
+        f"<start_of_turn>model\n"
+    )
 
 
 def inference_conversation(
@@ -68,42 +72,102 @@ def inference_completion(
     max_tokens: int = 50,
     base_url: str = "http://knowledgebase:8000",
     api_key: str = None,
-) -> str:
-    """Inference adjacent KnowledgeBase via OpenAI API interface.
+) -> list[str]:
+    """Inference adjacent KnowledgeBase via OpenAI API interface."""
 
-    :param system_prompt: System prompt for the current task.
-    :param user_prompt: User prompt for the current task.
-    :param model: Name of LLM model or LoRA adapter.
-    :param temperature: Creativity level of LLM
-    :param base_url: URL of API endpoint
-    :param api_key: Possible API key for authentication at external endpoint
-    :"""
-
-    # Use the adapter name if provided, otherwise the base model
     payload = {
         "model": model,
         "prompt": prompt,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": False,
+        "guided_json": LlmResponse.model_json_schema(),
     }
 
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
+
+    n_prompts = len(prompt) if isinstance(prompt, list) else 1
+
     try:
         full_url = base_url + "/v1/completions"
         response = requests.post(full_url, headers=headers, data=json.dumps(payload))
-        response.raise_for_status()  # Raises an error for 4xx or 5xx responses
+        response.raise_for_status()
 
         result = response.json()
-        return result
+        choices = sorted(result["choices"], key=lambda c: c.get("index", 0))
+        parsed: list[LlmResponse] = []
+        for choice in choices:
+            try:
+                parsed.append(LlmResponse.model_validate_json(choice["text"]))
+            except ValidationError as e:
+                parsed.append(LlmResponse(fixes=[
+                    Fix(column="", corrected_value="", reason=f"Failed to parse model output: {e}")
+                ]))
+        return parsed
 
     except requests.exceptions.RequestException as e:
-        return f"HTTP Request Error: {str(e)}"
-    except KeyError:
-        return f"Unexpected API Response Format: {response.text}"
+        return [LlmResponse(fixes=[
+            Fix(column="", corrected_value="", reason=f"HTTP Request Error: {str(e)}")
+        ])] * n_prompts
+    except (KeyError, ValueError):
+        return [LlmResponse(fixes=[
+            Fix(column="", corrected_value="", reason=f"Unexpected API Response Format: {response.text}")
+        ])] * n_prompts
 
+
+def _parse_result(raw_text: str, schema_class: type[BaseModel]) -> BaseModel | None:
+    """Validate a raw LLM completion string against schema_class."""
+    text = raw_text.strip()
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        text = match.group(0)
+    try:
+        return schema_class.model_validate_json(text)
+    except ValidationError:
+        return None
+
+
+def sherpai_completion(
+    sherpai_col: pd.Series,
+    problem_type: str,
+    toolUse_type: str,
+    system_prompt: Prompts,
+    max_tokens=60,
+    model="unsloth/gemma-3-27b-it-bnb-4bit",
+) -> pd.Series:
+    """Batch complete all batching_ready requests of SherpAISpace col."""
+
+    # Get all pairs with pending batching jobs
+    pending_Pair: list[Pair] = []
+    prompts: list[str] = []
+    for instance in sherpai_col:
+        if not isinstance(instance, SherpAIInstance):
+            continue
+
+        problem_list = getattr(instance, problem_type)
+
+        for pair in problem_list:
+            tool_use: ToolUse | None = getattr(pair, toolUse_type)
+            if tool_use is not None and tool_use.phase == Phase.BATCHING_READY:
+                pending_Pair.append(pair)
+                prompts.append(_format_gemma_prompt(system_prompt, tool_use.value[0]))
+
+    if not pending_Pair:
+        return sherpai_col
+
+    results: list[LlmResponse] = inference_completion(model=model, prompt=prompts, max_tokens=max_tokens)
+    if len(results) != len(pending_Pair):
+        msg = "Mismatch between number of prompts sent and results received"
+        raise ValueError(msg)
+
+    for pair, result in zip(pending_Pair, results):
+        cols = pair.affected_col
+        tool_use.value[0] = result
+        tool_use.phase = Phase.REVIEW_READY
+
+    return sherpai_col
 
 
 def batch_vectorization(
