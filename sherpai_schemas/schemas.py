@@ -82,7 +82,7 @@ class ToolUse(BaseModel):
     timestamp: datetime | None = (
         Field(default_factory=lambda: datetime.now(timezone.utc)) if tool_id else None
     )  # Only timestamp when solution made/ problem identified (no intermediate steps)
-    phase: Phase = Phase.IN_REVIEW
+    phase: Phase = Phase.REVIEW_READY
     state: State = Field(default_factory=State)
 
 
