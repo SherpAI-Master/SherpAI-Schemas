@@ -87,7 +87,7 @@ class ToolUse(BaseModel):
 
 
 class Pair(BaseModel):
-    row_id: str
+    row_id: int | str
     problem: ToolUse | None = None
     solution: ToolUse | None = None
 
