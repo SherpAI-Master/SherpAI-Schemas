@@ -78,8 +78,8 @@ class State(BaseModel):
 class ToolUse(BaseModel):
     value: dict[str, str | int | float | None] = Field(default_factory=dict)
     reason: str = ""
-    tool_id: ToolID | None = None
-    timestamp: datetime | None = (
+    tool_id: ToolID
+    timestamp: datetime = (
         Field(default_factory=lambda: datetime.now(timezone.utc))
     )
     phase: Phase = Phase.REVIEW_READY
