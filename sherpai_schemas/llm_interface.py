@@ -157,12 +157,11 @@ def sherpai_completion(
         msg = "Mismatch between number of prompts sent and results received"
         raise ValueError(msg)
 
-    for i, (_, llm_response) in enumerate(zip(pending_toolUse, results)):
-        new_tool_use = ToolUse(value={}, tool_id=tool_id)
+    for tool_use, llm_response in zip(pending_toolUse, results):
         for fix in llm_response.fixes:
-            new_tool_use.value[fix.column] = fix.corrected_value
-            new_tool_use.reason = fix.reason
-        pending_toolUse[i] = new_tool_use
+            tool_use.value[fix.column] = fix.corrected_value
+            tool_use.reason = fix.reason # Todo: Care if multiple reasons
+        tool_use.declare_ready()
 
     return sherpai_col
 

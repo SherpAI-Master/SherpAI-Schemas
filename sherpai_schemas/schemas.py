@@ -80,10 +80,14 @@ class ToolUse(BaseModel):
     reason: str = ""
     tool_id: ToolID | None = None
     timestamp: datetime | None = (
-        Field(default_factory=lambda: datetime.now(timezone.utc)) if tool_id else None
-    )  # Only timestamp when solution made/ problem identified (no intermediate steps)
+        Field(default_factory=lambda: datetime.now(timezone.utc))
+    )
     phase: Phase = Phase.REVIEW_READY
     state: State = Field(default_factory=State)
+
+    def declare_ready(self):
+        self.timestamp = datetime.now(timezone.utc)
+        self.phase = Phase.REVIEW_READY
 
 
 class Pair(BaseModel):
