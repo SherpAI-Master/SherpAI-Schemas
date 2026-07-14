@@ -168,9 +168,9 @@ def sherpai_completion(
         msg = "Mismatch between number of prompts sent and results received"
         raise ValueError(msg)
 
-    for tool_use, result in zip(pending_toolUse, results):
-        print(result, type(result))
-        tool_use.value[0] = result
+    for tool_use, llm_response in zip(pending_toolUse, results):
+        for fix in llm_response:
+            tool_use.value[fix.column] = fix.corrected_value
         tool_use.phase = Phase.REVIEW_READY
 
     return sherpai_col

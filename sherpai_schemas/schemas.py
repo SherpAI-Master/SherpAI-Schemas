@@ -197,7 +197,7 @@ class Prompts(StrEnum):
 
     # Instructions
     You receive an string with abbreviations. Write out any other abbreviation and return a JSON with corrected_value as its only key-value pair!
-    Ignore standardized abbreviations like Co KG or Inc.
+    Ignore standardized abbreviations like Co KG or Inc and leave data identifiers as is!
 
     # Examples
     Input: The value  "Manufaktur u. Produktion Dachmann" of column name1
