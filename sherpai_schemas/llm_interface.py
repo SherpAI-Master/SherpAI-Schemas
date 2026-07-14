@@ -171,7 +171,7 @@ def sherpai_completion(
     for tool_use, llm_response in zip(pending_toolUse, results):
         for fix in llm_response:
             tool_use.value[fix.column] = fix.corrected_value
-        tool_use.phase = Phase.REVIEW_READY
+            tool_use.phase = Phase.REVIEW_READY
 
     return sherpai_col
 
