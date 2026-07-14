@@ -140,7 +140,7 @@ def sherpai_completion(
     """Batch complete all batching_ready requests of SherpAISpace col."""
 
     # Get all pairs with pending batching jobs
-    pending_Pair: list[Pair] = []
+    pending_toolUse: list[ToolUse] = []
     prompts: list[str] = []
     for instance in sherpai_col:
         if not isinstance(instance, SherpAIInstance):
@@ -151,20 +151,19 @@ def sherpai_completion(
         for pair in problem_list:
             tool_use: ToolUse | None = getattr(pair, toolUse_type)
             if tool_use is not None and tool_use.phase == Phase.BATCHING_READY:
-                pending_Pair.append(pair)
+                pending_toolUse.append(tool_use)
                 prompts.append(_format_gemma_prompt(system_prompt, next(iter(tool_use.value.values()))))
 
-    if not pending_Pair:
+    if not tool_use:
         return sherpai_col
 
     results: list[LlmResponse] = inference_completion(model=model, prompt=prompts, max_tokens=max_tokens)
-    if len(results) != len(pending_Pair):
+    if len(results) != len(tool_use):
         msg = "Mismatch between number of prompts sent and results received"
         raise ValueError(msg)
 
-    for pair, result in zip(pending_Pair, results):
-        cols = pair.affected_col
-        print(result)
+    for pair, result in zip(tool_use, results):
+        print(result, type(result))
         tool_use.value[0] = result
         tool_use.phase = Phase.REVIEW_READY
 
