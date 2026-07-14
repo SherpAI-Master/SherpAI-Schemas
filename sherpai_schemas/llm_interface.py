@@ -152,7 +152,7 @@ def sherpai_completion(
             tool_use: ToolUse | None = getattr(pair, toolUse_type)
             if tool_use is not None and tool_use.phase == Phase.BATCHING_READY:
                 pending_Pair.append(pair)
-                prompts.append(_format_gemma_prompt(system_prompt, tool_use.value[0]))
+                prompts.append(_format_gemma_prompt(system_prompt, next(iter(tool_use.value.values()))))
 
     if not pending_Pair:
         return sherpai_col
@@ -164,6 +164,7 @@ def sherpai_completion(
 
     for pair, result in zip(pending_Pair, results):
         cols = pair.affected_col
+        print(result)
         tool_use.value[0] = result
         tool_use.phase = Phase.REVIEW_READY
 
