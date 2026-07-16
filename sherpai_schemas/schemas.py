@@ -226,21 +226,21 @@ class Prompts(StrEnum):
     If so, return a JSON object with the fixed data and a boolean value if it was fixable or not!
 
     # Examples
-    Input: {{"column": "date", "column_value": "01.03.2025", "format": "\\d{{2}}-\\d{{2}}-\\d{{4}}"}}
-    Output: {{"column": "date", "column_value": "01-03-2025", "reason: "Current data could be applied to given format."}}
+    Input: {{"column_name": "date", "column_value": "01.03.2025", "format": "\\d{{2}}-\\d{{2}}-\\d{{4}}"}}
+    Output: {{"column_name": "date", "column_value": "01-03-2025", "reason: "Current data could be applied to given format."}}
 
-    Input: {{"column": "date", "column_value": "2025", "format": "\\d{{2}}-\\d{{2}}-\\d{{4}}"}}
-    Output: {{"column": "date", "column_value": null, "reason": "Missing data in the original data to fullfill given format."}}
+    Input: {{"column_name": "date", "column_value": "2025", "format": "\\d{{2}}-\\d{{2}}-\\d{{4}}"}}
+    Output: {{"column_name": "date", "column_value": null, "reason": "Missing data in the original data to fullfill given format."}}
 
-    Input: Input: {{"column": "date", "column_value": "Jan. 23rd, 2022", "format": "\\d{{2}}-\\d{{2}}-\\d{{4}}"}}
-    Output: {{"column": "date", "column_value": "23-01-2022", "realson": "Date format was in written form and was transfomred into schema."}}
+    Input: Input: {{"column_name": "date", "column_value": "Jan. 23rd, 2022", "format": "\\d{{2}}-\\d{{2}}-\\d{{4}}"}}
+    Output: {{"column_name": "date", "column_value": "23-01-2022", "realson": "Date format was in written form and was transfomred into schema."}}
 
     # Your Turn
     Process this given input data:
 
     # Input data
     """
-    FIX_FORMATTING_USER = """{{"column": "{col_name}", "column_value": {col_value}", "format": "{col_rule}"}}"""
+    FIX_FORMATTING_USER = """{{"column_name": "{col_name}", "column_value": {col_value}", "format": "{col_rule}"}}"""
     FIX_MISPLACED_SYSTEM = """You are a data-validation expert correcting mistakenly placed values in columns."""
     FIX_MISPLACED_USER = """A value from column "{missing_col}" was mistakenly placed inside 
         the value "{overfilled_value}" of column "{overfilled_col}".
