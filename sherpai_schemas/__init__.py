@@ -1,19 +1,43 @@
-from .schemas import SherpAIInstance, ToolUse, Pair, Phase, State, ReviewStatus, ToolID, ProblemID, Prompts, FormattingRules, Fix, LlmResponse
+from .schemas import (
+    ChangeRole,
+    Decision,
+    FieldChange,
+    Finding,
+    Fix,
+    FormattingRules,
+    InvalidTransitionError,
+    LatestAcceptedWins,
+    LifecycleStatus,
+    LlmResponse,
+    MergePolicy,
+    PipelineStage,
+    ProblemType,
+    Prompts,
+    Proposal,
+    SherpAIInstance,
+    ToolIdentity,
+)
 from .functions import parse_dimensions_from_str, parse_dimensions_to_str, get_pure_data, smart_cast
-from .llm_interface import inference_conversation, batch_vectorization, inference_completion, sherpai_completion
+from .llm_interface import inference_conversation, batch_vectorization, inference_completion, format_gemma_prompt
+from .pipeline import PipelineTool, PipelineRunner
 from .vectordb_interface import vectorize_data, query_db
 
 __all__ = [
     "SherpAIInstance",
-    "ToolUse",
-    "Pair",
+    "Finding",
+    "Proposal",
+    "Decision",
+    "FieldChange",
+    "ChangeRole",
+    "LifecycleStatus",
+    "InvalidTransitionError",
+    "MergePolicy",
+    "LatestAcceptedWins",
+    "ToolIdentity",
+    "PipelineStage",
+    "ProblemType",
     "LlmResponse",
     "Fix",
-    "ToolID",
-    "ProblemID",
-    "ReviewStatus",
-    "Phase",
-    "State",
     "Prompts",
     "FormattingRules",
 
@@ -24,12 +48,11 @@ __all__ = [
 
     "inference_conversation",
     "inference_completion",
+    "format_gemma_prompt",
     "batch_vectorization",
-    "sherpai_completion",
-    #"batch_inference_address_extraction",
-    #"batch_inference_klassifik",
-    #"batch_inference_fix_formatting",
-    #"batch_inference_fix_incomplete",
+
+    "PipelineTool",
+    "PipelineRunner",
 
     "vectorize_data",
     "query_db",

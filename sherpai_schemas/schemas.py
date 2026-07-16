@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import ast
 import re
 from dataclasses import dataclass
-from enum import Enum
 from datetime import datetime, timezone
-from typing import Optional
-import json
-from pydantic import BaseModel, Field
+from enum import Enum, StrEnum
+from typing import Protocol
 
 import pandas as pd
-from enum import StrEnum
+from pydantic import BaseModel, Field
 
 
 class Fix(BaseModel):
@@ -27,145 +24,234 @@ class LlmResponse(BaseModel):
     fixes: list[Fix]
 
 
-class ToolID(Enum):
-    CORRECTION_FORMATTING_TIER1 = 1
-    CORRECTION_INCOMPLETE_TIER1 = 2
-    CORRECTION_MISPLACED_TIER1 = 3
-    CORRECTION_MISSPELLED_TIER1 = 4
-    CORRECTION_VALIDATION_MISSING_TIER1 = 5
-    DETECTION_FORMATTING_TIER1 = 6
-    DETECTION_INCOMPLETE_TIER1 = 7
-    DETECTION_MISPLACED_TIER1 = 8
-    DETECTION_MISSING_TIER1 = 9
-    DETECTION_MISSPELLED_TIER1 = 10
-    DETECTION_VALIDATION_TIER1 = 11
-    INTEGRATION_DITTO_TIER1 = 12
-    INTEGRATION_DUPLICATION_PAIRS_TIER1 = 13
+class ProblemType(str, Enum):
+    """The category of data-quality issue a Finding represents.
+
+    - incomplete: An existing abbreviation in the row
+    - misplaced: A value is set in the wrong column of the csv
+    - formatting: The data has inconsistent formatting or wrong standards
+    - misspelled: Probable wrong spelling in data
+    - missing_value: A value is missing from the column
+    - validation: Contradicting outside information spotted
+    """
+
+    INCOMPLETE = "incomplete"
+    MISPLACED = "misplaced"
+    FORMATTING = "formatting"
+    MISSPELLED = "misspelled"
+    MISSING_VALUE = "missing_value"
+    VALIDATION = "validation"
 
 
-class ProblemID(Enum):
-    INCOMPLETE = 1
-    MISPLACED = 2
-    FORMATTING = 3
-    MISSPELLED = 4
-    MISSING_VALUE = 5
-    VALIDATION = 6
+class PipelineStage(str, Enum):
+    """Where in the pipeline a tool runs."""
+
+    DETECTION = "detection"
+    CORRECTION = "correction"
+    INTEGRATION = "integration"
 
 
-class ReviewStatus(str, Enum):
-    """The status of the user review."""
+class ToolIdentity(BaseModel):
+    """Identifies one pipeline tool/container.
 
-    PENDING = "pending"
+    Constructible 1:1 from one instructions.json entry
+    ({"pool": ..., "tool": ..., "tier": ...}).
+    """
+
+    stage: PipelineStage
+    tool: str
+    tier: int = 1
+
+    def compose_name(self) -> str:
+        """Single source of truth for the pool_tool_tierN.yml naming convention."""
+        return f"{self.stage.value}_{self.tool}_tier{self.tier}.yml"
+
+    def as_problem_type(self) -> ProblemType | None:
+        """ProblemType(tool) for detection/correction tools; None for integration
+        tools (ditto, duplicate_pairs), which have no ProblemType counterpart.
+        """
+        try:
+            return ProblemType(self.tool)
+        except ValueError:
+            return None
+
+
+class ChangeRole(str, Enum):
+    """What a FieldChange means within a Proposal."""
+
+    TARGET = "target"
+    SOURCE = "source"
+    CONTEXT = "context"
+
+
+class FieldChange(BaseModel):
+    """One column+value touched by a detection or correction."""
+
+    column: str
+    value: str | int | float | None = None
+    role: ChangeRole = ChangeRole.TARGET
+
+
+class LifecycleStatus(str, Enum):
+    """Where a Proposal sits between being drafted and being reviewed."""
+
+    DRAFTED = "drafted"
+    BATCHING_READY = "batching_ready"
+    REVIEW_READY = "review_ready"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
 
 
-class Phase(str, Enum):
-    """Where a ToolUse sits in the processing pipeline."""
+_TRANSITIONS: dict[LifecycleStatus, frozenset[LifecycleStatus]] = {
+    LifecycleStatus.DRAFTED: frozenset({LifecycleStatus.BATCHING_READY, LifecycleStatus.REVIEW_READY}),
+    LifecycleStatus.BATCHING_READY: frozenset({LifecycleStatus.REVIEW_READY}),
+    LifecycleStatus.REVIEW_READY: frozenset({LifecycleStatus.ACCEPTED, LifecycleStatus.REJECTED}),
+    LifecycleStatus.ACCEPTED: frozenset(),
+    LifecycleStatus.REJECTED: frozenset(),
+}
 
-    BATCHING_READY = "batching_ready"
-    REVIEW_READY = "review_ready"
-    DONE = "done"
+
+class InvalidTransitionError(RuntimeError):
+    """Raised when a Proposal's requested status isn't reachable from its current one."""
 
 
-class State(BaseModel):
-    """The review outcome + who/why/when. Always present, defaults to pending."""
+class Decision(BaseModel):
+    """Immutable human review outcome; unset until status reaches ACCEPTED/REJECTED."""
 
-    status: ReviewStatus = ReviewStatus.PENDING
+    reviewer: str
     reason: str = ""
-    user: str = ""
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class ToolUse(BaseModel):
-    """Track singular problem or its solution.""" #Todo: Difference between tooluse and a Fix
-    value: dict[str, str | int | float | None] = Field(default_factory=dict)
+class Proposal(BaseModel):
+    """A single tool's proposed detection or correction, plus its review lifecycle."""
+
+    identity: ToolIdentity
+    changes: list[FieldChange] = Field(default_factory=list)
     reason: str = ""
-    tool_id: ToolID
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    phase: Phase = Phase.REVIEW_READY
-    state: State = Field(default_factory=State)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: LifecycleStatus = LifecycleStatus.DRAFTED
+    pending_prompt: str | None = None
+    decision: Decision | None = None
 
-    def declare_ready(self):
-        self.timestamp = datetime.now(timezone.utc)
-        self.phase = Phase.REVIEW_READY
+    def single(self, role: ChangeRole = ChangeRole.TARGET) -> FieldChange:
+        """The one FieldChange with the given role; raises unless there's exactly one."""
+        matches = self.by_role(role)
+        if len(matches) != 1:
+            msg = f"Expected exactly one {role.value} change, found {len(matches)}"
+            raise ValueError(msg)
+        return matches[0]
+
+    def by_role(self, role: ChangeRole) -> list[FieldChange]:
+        return [change for change in self.changes if change.role == role]
+
+    def mark_batching_ready(self, prompt: str) -> None:
+        self._transition(LifecycleStatus.BATCHING_READY)
+        self.pending_prompt = prompt
+
+    def mark_review_ready(self) -> None:
+        self._transition(LifecycleStatus.REVIEW_READY)
+        self.pending_prompt = None
+
+    def accept(self, reviewer: str, reason: str = "") -> None:
+        self._transition(LifecycleStatus.ACCEPTED)
+        self.decision = Decision(reviewer=reviewer, reason=reason)
+
+    def reject(self, reviewer: str, reason: str) -> None:
+        self._transition(LifecycleStatus.REJECTED)
+        self.decision = Decision(reviewer=reviewer, reason=reason)
+
+    def can_apply(self) -> bool:
+        """True iff this proposal has been accepted by a reviewer."""
+        return self.status == LifecycleStatus.ACCEPTED
+
+    def _transition(self, target: LifecycleStatus) -> None:
+        if target not in _TRANSITIONS[self.status]:
+            msg = f"Cannot move Proposal from {self.status.value} to {target.value}"
+            raise InvalidTransitionError(msg)
+        self.status = target
+        self.updated_at = datetime.now(timezone.utc)
 
 
-class Pair(BaseModel):
-    row_id: int | str
-    problem: ToolUse | None = None
-    solution: ToolUse | None = None
+class Finding(BaseModel):
+    """One detected problem in a data row, plus its proposed correction (if any)."""
+
+    problem_type: ProblemType
+    detection: Proposal
+    correction: Proposal | None = None
+
+    def can_apply(self) -> bool:
+        return self.correction is not None and self.correction.can_apply()
+
+
+class MergePolicy(Protocol):
+    def resolve(self, findings: list[Finding]) -> dict[str, FieldChange]: ...
+
+
+class LatestAcceptedWins:
+    """Default MergePolicy: among findings whose correction is ACCEPTED, keep the
+    FieldChange with the latest Proposal.decision.decided_at per column.
+    """
+
+    def resolve(self, findings: list[Finding]) -> dict[str, FieldChange]:
+        latest: dict[str, tuple[datetime, FieldChange]] = {}
+
+        for finding in findings:
+            if not finding.can_apply():
+                continue
+
+            decided_at = finding.correction.decision.decided_at
+            for change in finding.correction.changes:
+                if change.column not in latest or decided_at > latest[change.column][0]:
+                    latest[change.column] = (decided_at, change)
+
+        return {col: change for col, (_, change) in latest.items()}
+
+
+_DEFAULT_MERGE_POLICY = LatestAcceptedWins()
 
 
 class SherpAIInstance(BaseModel):
-    """Identified problems in a data row.
+    """All findings identified in a data row."""
 
-    Here, the attribute name is the problem type and the lists contain the affected rows
-    - incomplete: An existing abbreviation in the row                           1
-    - misplaced: A value is set in the wrong column of the csv                  2
-    - formatting: The data has inconsistent formatting or wrong standards       3
-    - misspelled: Probable wrong spelling in data                               4
-    - missing_value: A value is missing from the column                         5
-    - validation: Contradicting outside information spotted                     6
-    """
-
-    incomplete: list[Pair] = Field(default_factory=list)
-    misplaced: list[Pair] = Field(default_factory=list)
-    formatting: list[Pair] = Field(default_factory=list)
-    misspelled: list[Pair] = Field(default_factory=list)
-    missing_value: list[Pair] = Field(default_factory=list)
-    validation: list[Pair] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
 
     def __str__(self) -> str:
-        """Convert SherpAiInstance into json-format"""
+        """Convert SherpAIInstance into json-format"""
         return self.model_dump_json()
 
     @staticmethod
     def parse_from_str(label: str) -> SherpAIInstance:
-        """Convert ProblemID string back into a Identified problem object."""
+        """Convert a JSON string back into a SherpAIInstance."""
         if not label:
             return SherpAIInstance()
         return SherpAIInstance.model_validate_json(label)
 
-    def get_affected_cols(self, *args) -> list[str]:
-        """Get all cols of a specific problem"""
-        if not args:
+    def by_type(self, problem_type: ProblemType) -> list[Finding]:
+        """All findings of a given problem type."""
+        return [finding for finding in self.findings if finding.problem_type == problem_type]
+
+    def add_finding(self, finding: Finding) -> None:
+        self.findings.append(finding)
+
+    def get_affected_cols(self, *problem_types: ProblemType) -> list[str]:
+        """Get all cols touched by detections of any of the given problem types."""
+        if not problem_types:
             return []
 
-        affected_cols = set()
-
-        for arg in args:
-            if not hasattr(self, arg):
-                msg = f"Instance has no attribute {arg}"
-                raise AttributeError(msg)
-
-            problem_list = getattr(self, arg)
-            for pair in problem_list:
-                affected_cols.update(pair.problem.value)
+        affected_cols: set[str] = set()
+        for problem_type in problem_types:
+            for finding in self.by_type(problem_type):
+                affected_cols.update(change.column for change in finding.detection.changes)
 
         return list(affected_cols)
 
-    def apply_solutions(self, data_row: pd.Series) -> pd.Series:
-        """Update current data with most recent solutions"""
-        latest: dict[str, tuple[datetime, str | int | float | None]] = {}
-
-        for problem_list in SherpAIInstance.model_fields:
-            pair_list = getattr(self, problem_list)
-            if not isinstance(pair_list, list):
-                continue
-
-            for pair in pair_list:
-                solution = pair.solution
-                if solution is None:
-                    continue
-
-                for col, value in solution.value.items():
-                    if col not in latest or solution.timestamp > latest[col][0]:
-                        latest[col] = (solution.timestamp, value)
-
-        for col, (_, value) in latest.items():
+    def apply_solutions(self, data_row: pd.Series, policy: MergePolicy = _DEFAULT_MERGE_POLICY) -> pd.Series:
+        """Update current data with the latest accepted corrections."""
+        for col, change in policy.resolve(self.findings).items():
             if col in data_row.index:
-                data_row[col] = value
+                data_row[col] = change.value
 
         return data_row
 
@@ -257,7 +343,7 @@ class Prompts(StrEnum):
     """
     FIX_FORMATTING_USER = """{{"column_name": "{col_name}", "column_value": {col_value}", "format": "{col_rule}"}}"""
     FIX_MISPLACED_SYSTEM = """You are a data-validation expert correcting mistakenly placed values in columns."""
-    FIX_MISPLACED_USER = """A value from column "{missing_col}" was mistakenly placed inside 
+    FIX_MISPLACED_USER = """A value from column "{missing_col}" was mistakenly placed inside
         the value "{overfilled_value}" of column "{overfilled_col}".
 
         Your task:
