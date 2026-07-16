@@ -78,6 +78,7 @@ class State(BaseModel):
 
 
 class ToolUse(BaseModel):
+    """Track singular problem or its solution."""
     value: dict[str, str | int | float | None] = Field(default_factory=dict)
     reason: str = ""
     tool_id: ToolID
@@ -187,7 +188,21 @@ class Prompts(StrEnum):
         Provide ONLY the output as a JSON **with changes**. Dont give any extra explainations! Dont just repeat already given values!
 
         # Example
-        Input: {"hybrid": "PERS_1_12, "name1": "Tehno Gmbh", "zeile1": "Beriner str. 12", "city": "Berln", "zip": "10115"}
+        Input: {"hybrid": "PERS_1_12, "name1": "Tehno Gmbh", "zeile1": "Beriner Str. 12", "city": "Berln", "zip": "10115"}
+        Output: {{
+                    "fixes": [
+                        {{
+                            "column": "zeile1",
+                            "corrected_value": "Berliner Str. 12",
+                            "reason": "Berlin is written with an L."
+                        }},
+                        {{
+                            "column: "city",
+                            "corrected_value": "Berlin",
+                            "reason": "Berlin is written with an I."
+                        }}
+                    ]
+                }}
         Output: {"zeile1": "Berliner Straße 12", "city": "Berlin"}
 
         # Your Turn
