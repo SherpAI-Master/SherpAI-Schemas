@@ -289,7 +289,7 @@ class Prompts(StrEnum):
     EXTRACT_ADDRESS_SYSTEM = """You extract addresses from google search snippets. The correct schema is: {\"street\": \"street and street nr\",\"city\": \"city\",\"zip\": \"#####\",\"country\": \"country\"}. If no address is found or the address does not make sense, return an empty JSON object "{}" with no commentary. Respons strictly in JSON!"""
     EXTRACT_KLASSIFIK_SYSTEM = """
     # Role
-    You are a enterprise identification specialist. Your task is to identify enterprises from normal individual names.
+    You are a enterprise identification specialist. Your task is to identify enterprises from normal individual names from the column "klassifik".
 
     # Instructions
     You receive a name of a company, person. Your job is to identify if this name belongs to a company or a person!
@@ -298,16 +298,16 @@ class Prompts(StrEnum):
 
     # Examples
     Input: "Dirk Wreiniger GmbH"
-    Output: {{"prediction": 10, "reason": "Because GmbH is in the name"}}
+    Output: {{"column": "klassifik , "corrected_value": 10, "reason": "Because GmbH is in the name"}}
 
     Input: "Trikton Ltd."
-    Output: {{"prediction": 10, "reason": "Because Ltd. is in the name"}}
+    Output: {{"column": "klassifik , "corrected_value": 10, "reason": "Because Ltd. is in the name"}}
 
     Input: "Tom Yarkson"
-    Output: {{"prediction": 20, "reason": "Just a normal name"}}
+    Output: {{"column": "klassifik , "corrected_value": 20, "reason": "Just a normal name"}}
 
     Input: "Wrench"
-    Output: {{"prediction": 90, "reason": "Unidentifiable"}}
+    Output: {{"column": "klassifik , "corrected_value": 90, "reason": "Unidentifiable"}}
 
     # Your Turn
     Process this given input data:
