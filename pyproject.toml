@@ -17,3 +17,15 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["sherpai_schemas"]
+
+# Dev-only (PEP 735). Installed by `uv sync`, never part of the built wheel,
+# so `pip install git+...` in the Docker images stays runtime-deps only.
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-cov>=6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
