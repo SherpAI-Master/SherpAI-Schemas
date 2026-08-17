@@ -311,14 +311,21 @@ def test_inference_completion_reports_an_unexpected_body_shape(monkeypatch):
     )
 
 
-# --- Characterization test: current behavior, not desired behavior ---------
+# --- Known bugs: these assert the intended behavior and fail until it is met -
 
 
-def test_error_sentinels_are_the_same_aliased_object(monkeypatch):
-    # FIXME: the error paths build `[sentinel] * n_prompts`, which repeats one
-    # object rather than creating n. PipelineRunner.apply_batch_result mutates
-    # the LlmResponse it is handed, so a mutation to one result would be seen
-    # by all. Building a fresh LlmResponse per prompt would fix it.
+@pytest.mark.known_bug
+def test_error_sentinels_are_independent_objects(monkeypatch):
+    """Each prompt must get its own LlmResponse, even on the error path.
+
+    BUG: the error paths build `[sentinel] * n_prompts`, which repeats one
+    object n times rather than creating n. PipelineTool.apply_batch_result
+    mutates the LlmResponse it is handed, so writing a fix onto one row's
+    response writes it onto every row's.
+    FIX: build a fresh LlmResponse per prompt, e.g.
+    `[LlmResponse(fixes=[Fix(...)]) for _ in range(n_prompts)]`
+    (sherpai_schemas/llm_interface.py:114-121).
+    """
     monkeypatch.setattr(
         POST_TARGET,
         RecordingPost(raises=requests.exceptions.ConnectionError("refused")),
@@ -326,7 +333,8 @@ def test_error_sentinels_are_the_same_aliased_object(monkeypatch):
 
     results = inference_completion(prompt=["a", "b"], model="gemma")
 
-    assert results[0] is results[1]
+    assert results[0] is not results[1]
+    assert results[0] == results[1]
 
 
 # --------------------------------------------------------------------------

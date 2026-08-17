@@ -526,9 +526,10 @@ def test_get_pattern_ignores_non_pattern_attributes():
     assert FormattingRules.get_pattern("is_valid") is None
 
 
-# --- Characterization tests: current behavior, not desired behavior ---------
+# --- Known bugs: these assert the intended behavior and fail until it is met -
 
 
+@pytest.mark.known_bug
 @pytest.mark.parametrize(
     ("column", "value"),
     [
@@ -537,16 +538,21 @@ def test_get_pattern_ignores_non_pattern_attributes():
         ("name1", "Gebauer GmbH \x00"),
     ],
 )
-def test_unanchored_rules_accept_trailing_garbage(column, value):
-    # FIXME: is_valid uses re.match, which only anchors at the start. The land,
-    # ort and name1 patterns have no trailing $, so junk after a valid prefix
-    # passes. Switching to fullmatch would fix this -- update these assertions
-    # to `is False` when that happens.
-    assert FormattingRules.is_valid(column, value) is True
+def test_rules_reject_trailing_garbage(column, value):
+    """A value must match its pattern end to end, not just at the start.
+
+    BUG: is_valid uses re.match, which anchors only at position 0. The land,
+    ort and name1 patterns carry no trailing `$`, so anything after a valid
+    prefix is accepted -- "DE!!!" passes as a country code.
+    FIX: use pattern.fullmatch(str(value)) in FormattingRules.is_valid
+    (sherpai_schemas/schemas.py:437). Every already-passing case in
+    test_is_valid_accepts_well_formed_erp_values stays valid under fullmatch.
+    """
+    assert FormattingRules.is_valid(column, value) is False
 
 
 @pytest.mark.parametrize("value", ["!!!DE", " Stuttgart"])
-def test_unanchored_rules_still_reject_leading_garbage(value):
+def test_rules_reject_leading_garbage(value):
     # re.match does anchor at position 0, so the asymmetry above is one-sided.
     assert FormattingRules.is_valid("land", value) is False
 

@@ -59,14 +59,21 @@ def test_smart_cast_on_empty_string_uses_the_fallback():
     assert smart_cast("", return_on_fail=[]) == []
 
 
-# --- Characterization test: current behavior, not desired behavior ---------
+# --- Known bugs: these assert the intended behavior and fail until it is met -
 
 
-def test_smart_cast_corrupts_words_containing_true_or_false():
-    # FIXME: the boolean rewrite is a bare re.sub with no word boundary, so it
-    # fires inside ordinary words too -- "construe" becomes "consTrue". Adding
-    # \b anchors would fix it; flip this assertion when that happens.
-    assert smart_cast("['construe']", return_on_fail=[]) == ["consTrue"]
+@pytest.mark.known_bug
+def test_smart_cast_preserves_words_containing_true_or_false():
+    """The JSON->Python boolean rewrite must only touch actual booleans.
+
+    BUG: `re.sub("true", "True", value)` has no word boundary, so it fires
+    inside ordinary words -- an LLM returning "construe" yields "consTrue".
+    Any German or English value containing the substring is silently corrupted.
+    FIX: use r"\\btrue\\b" / r"\\bfalse\\b" in smart_cast
+    (sherpai_schemas/functions.py:64-65). Real JSON booleans are always
+    delimited, so test_smart_cast_rewrites_json_booleans keeps passing.
+    """
+    assert smart_cast("['construe']", return_on_fail=[]) == ["construe"]
 
 
 # --------------------------------------------------------------------------
