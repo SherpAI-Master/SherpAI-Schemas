@@ -17,3 +17,9 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["sherpai_schemas"]
+
+[dependency-groups]
+dev = ["pytest>=8.4"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

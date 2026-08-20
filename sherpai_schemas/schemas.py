@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import ast
 import re
 from dataclasses import dataclass
 from enum import Enum
-from datetime import datetime, timezone
-from typing import Optional
-import json
+from typing import Any
 from pydantic import BaseModel, Field
 
 import pandas as pd
@@ -27,94 +24,145 @@ class LlmResponse(BaseModel):
     fixes: list[Fix]
 
 
-class ToolID(Enum):
-    CORRECTION_FORMATTING_TIER1 = 1
-    CORRECTION_INCOMPLETE_TIER1 = 2
-    CORRECTION_MISPLACED_TIER1 = 3
-    CORRECTION_MISSPELLED_TIER1 = 4
-    CORRECTION_VALIDATION_MISSING_TIER1 = 5
-    DETECTION_FORMATTING_TIER1 = 6
-    DETECTION_INCOMPLETE_TIER1 = 7
-    DETECTION_MISPLACED_TIER1 = 8
-    DETECTION_MISSING_TIER1 = 9
-    DETECTION_MISSPELLED_TIER1 = 10
-    DETECTION_VALIDATION_TIER1 = 11
-    INTEGRATION_DITTO_TIER1 = 12
-    INTEGRATION_DUPLICATION_PAIRS_TIER1 = 13
+class PipelineStage(StrEnum):
+    """Which stage of the pipeline a tool belongs to."""
+
+    DETECTION = "detection"
+    CORRECTION = "correction"
+    INTEGRATION = "integration"
 
 
-class ProblemID(Enum):
-    INCOMPLETE = 1
-    MISPLACED = 2
-    FORMATTING = 3
-    MISSPELLED = 4
-    MISSING_VALUE = 5
-    VALIDATION = 6
+class ProblemType(StrEnum):
+    """The kind of data-quality problem a Finding represents."""
+
+    FORMATTING = "formatting"
+    INCOMPLETE = "incomplete"
+    MISPLACED = "misplaced"
+    MISSING_VALUE = "missing_value"
+    MISSPELLED = "misspelled"
+    VALIDATION = "validation"
 
 
-class ReviewStatus(str, Enum):
-    """The status of the user review."""
+class ChangeRole(StrEnum):
+    """Which side of a change a FieldChange represents.
+
+    Most Proposals carry a single, unambiguous FieldChange -- those default to
+    TARGET, so Proposal.single() finds them without callers ever having to set
+    role= explicitly. SOURCE only shows up for tools (like "misplaced") that
+    need to describe two columns at once.
+    """
+
+    TARGET = "target"
+    SOURCE = "source"
+
+
+class LifecycleStatus(str, Enum):
+    """Where a Proposal sits in its review/batching lifecycle."""
 
     PENDING = "pending"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
-
-
-class Phase(str, Enum):
-    """Where a ToolUse sits in the processing pipeline."""
-
     BATCHING_READY = "batching_ready"
     REVIEW_READY = "review_ready"
-    DONE = "done"
+    ACCEPTED = "accepted"
 
 
-class State(BaseModel):
-    """The review outcome + who/why/when. Always present, defaults to pending."""
+_TOOL_TO_PROBLEM_TYPE: dict[str, ProblemType] = {
+    "formatting": ProblemType.FORMATTING,
+    "incomplete": ProblemType.INCOMPLETE,
+    "misplaced": ProblemType.MISPLACED,
+    "missing": ProblemType.MISSING_VALUE,
+    "misspelled": ProblemType.MISSPELLED,
+    "validation": ProblemType.VALIDATION,
+}
 
-    status: ReviewStatus = ReviewStatus.PENDING
+
+class ToolIdentity(BaseModel):
+    """Identifies a single pipeline tool: which stage, which tool, which tier."""
+
+    stage: PipelineStage
+    tool: str
+    tier: int
+
+    def compose_name(self) -> str:
+        """The compose service name this tool runs under, e.g. 'detection_formatting_tier1.yml'."""
+        return f"{self.stage.value}_{self.tool}_tier{self.tier}.yml"
+
+    def as_problem_type(self) -> ProblemType | None:
+        """The ProblemType this tool's own tool name maps to, or None if it spans several."""
+        return _TOOL_TO_PROBLEM_TYPE.get(self.tool)
+
+
+class FieldChange(BaseModel):
+    """A single column/value pair proposed by a detection or correction."""
+
+    column: str
+    value: Any = None
+    role: ChangeRole = ChangeRole.TARGET
+
+
+class Proposal(BaseModel):
+    """A detection or correction: which tool made it, what it wants to change, and its review state."""
+
+    identity: ToolIdentity
+    changes: list[FieldChange] = Field(default_factory=list)
     reason: str = ""
-    user: str = ""
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: LifecycleStatus = LifecycleStatus.PENDING
+    pending_prompt: str = ""
+    reviewed_by: str = ""
+
+    def mark_review_ready(self) -> None:
+        self.status = LifecycleStatus.REVIEW_READY
+
+    def mark_batching_ready(self, prompt: str) -> None:
+        self.status = LifecycleStatus.BATCHING_READY
+        self.pending_prompt = prompt
+
+    def single(self, role: ChangeRole | None = None) -> FieldChange:
+        """Return the sole change for the given role (default TARGET), or raise."""
+        effective_role = role if role is not None else ChangeRole.TARGET
+        matches = [change for change in self.changes if change.role == effective_role]
+        if len(matches) != 1:
+            msg = f"Expected exactly one {effective_role.value} change, found {len(matches)}"
+            raise ValueError(msg)
+        return matches[0]
+
+    def accept(self, reviewer: str) -> None:
+        self.status = LifecycleStatus.ACCEPTED
+        self.reviewed_by = reviewer
 
 
-class ToolUse(BaseModel):
-    """Track singular problem or its solution.""" #Todo: Difference between tooluse and a Fix
-    value: dict[str, str | int | float | None] = Field(default_factory=dict)
-    reason: str = ""
-    tool_id: ToolID
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    phase: Phase = Phase.REVIEW_READY
-    state: State = Field(default_factory=State)
+class Finding(BaseModel):
+    """One detected problem: what kind, how it was detected, and (once available) how to fix it."""
 
-    def declare_ready(self):
-        self.timestamp = datetime.now(timezone.utc)
-        self.phase = Phase.REVIEW_READY
-
-
-class Pair(BaseModel):
-    row_id: int | str
-    problem: ToolUse | None = None
-    solution: ToolUse | None = None
+    problem_type: ProblemType
+    detection: Proposal
+    correction: Proposal | None = None
 
 
 class SherpAIInstance(BaseModel):
-    """Identified problems in a data row.
+    """All findings identified in a data row."""
 
-    Here, the attribute name is the problem type and the lists contain the affected rows
-    - incomplete: An existing abbreviation in the row                           1
-    - misplaced: A value is set in the wrong column of the csv                  2
-    - formatting: The data has inconsistent formatting or wrong standards       3
-    - misspelled: Probable wrong spelling in data                               4
-    - missing_value: A value is missing from the column                         5
-    - validation: Contradicting outside information spotted                     6
-    """
+    findings: list[Finding] = Field(default_factory=list)
 
-    incomplete: list[Pair] = Field(default_factory=list)
-    misplaced: list[Pair] = Field(default_factory=list)
-    formatting: list[Pair] = Field(default_factory=list)
-    misspelled: list[Pair] = Field(default_factory=list)
-    missing_value: list[Pair] = Field(default_factory=list)
-    validation: list[Pair] = Field(default_factory=list)
+    def add_finding(self, finding: Finding) -> None:
+        self.findings.append(finding)
+
+    def by_type(self, problem_type: ProblemType) -> list[Finding]:
+        """All findings of the given problem type."""
+        return [finding for finding in self.findings if finding.problem_type == problem_type]
+
+    def get_affected_cols(self, *problem_types: ProblemType) -> list[str]:
+        """Columns already flagged by a detection of any of the given problem types."""
+        wanted = set(problem_types)
+        seen: set[str] = set()
+        cols: list[str] = []
+        for finding in self.findings:
+            if finding.problem_type not in wanted:
+                continue
+            for change in finding.detection.changes:
+                if change.column not in seen:
+                    seen.add(change.column)
+                    cols.append(change.column)
+        return cols
 
     def __str__(self) -> str:
         """Convert SherpAiInstance into json-format"""
@@ -122,52 +170,10 @@ class SherpAIInstance(BaseModel):
 
     @staticmethod
     def parse_from_str(label: str) -> SherpAIInstance:
-        """Convert ProblemID string back into a Identified problem object."""
+        """Convert a stringified SherpAIInstance back into an object."""
         if not label:
             return SherpAIInstance()
         return SherpAIInstance.model_validate_json(label)
-
-    def get_affected_cols(self, *args) -> list[str]:
-        """Get all cols of a specific problem"""
-        if not args:
-            return []
-
-        affected_cols = set()
-
-        for arg in args:
-            if not hasattr(self, arg):
-                msg = f"Instance has no attribute {arg}"
-                raise AttributeError(msg)
-
-            problem_list = getattr(self, arg)
-            for pair in problem_list:
-                affected_cols.update(pair.problem.value)
-
-        return list(affected_cols)
-
-    def apply_solutions(self, data_row: pd.Series) -> pd.Series:
-        """Update current data with most recent solutions"""
-        latest: dict[str, tuple[datetime, str | int | float | None]] = {}
-
-        for problem_list in SherpAIInstance.model_fields:
-            pair_list = getattr(self, problem_list)
-            if not isinstance(pair_list, list):
-                continue
-
-            for pair in pair_list:
-                solution = pair.solution
-                if solution is None:
-                    continue
-
-                for col, value in solution.value.items():
-                    if col not in latest or solution.timestamp > latest[col][0]:
-                        latest[col] = (solution.timestamp, value)
-
-        for col, (_, value) in latest.items():
-            if col in data_row.index:
-                data_row[col] = value
-
-        return data_row
 
 
 class Prompts(StrEnum):
@@ -177,7 +183,7 @@ class Prompts(StrEnum):
         You are a data validation expert. Your task is to find values placed in the wrong columns. The correct schema is: {\"hybrid\": \"PERS_#_######\", \"typ\": #, \"nr\": ######, \"klassifik\": \"#\", \"name1\": \"Company/Person\", \"zeile1\": \"Address\", \"plz\": \"Postal Code\", \"ort\": \"City\", \"land\": \"Country\", \"ustid\": \"########\", \"steuernr\": \"########\", \"iln\": \"########\"}"}.
         If you find misplacements, output a JSON object containing the columns needed to be switched!
         """
-    DETECT_FIX_MISSPELLED_SYSTEM = """
+    DETECT_MISSPELLED_SYSTEM = """
         # Role
         You are a German Data Quality Specialist. Your task is to normalize and spell-check German address data.
 
